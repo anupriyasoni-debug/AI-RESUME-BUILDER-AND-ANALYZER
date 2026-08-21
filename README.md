@@ -48,20 +48,12 @@ resume_app/
 
 ---
 
-## ⚙️ Setup & Run
-```bash
-# 1. Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+## ⚙️ Run
 
-# 2. Install dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 3. (Optional) Enable AI suggestions
-cp .env.example .env
-# edit .env → OPENAI_API_KEY=sk-...
-
-# 4. Run the app
+# 2. Run the app
 streamlit run app.py
 ```
 App opens at `http://localhost:8501`.
@@ -112,13 +104,3 @@ This is intentionally simple and transparent (no black-box scoring) so it's easy
 - Add multiple resume templates/themes in the builder
 - Improve skill detection with a larger, categorized skill taxonomy
 - Add basic session persistence (save/load builder drafts)
-
----
-
-## 📸 Screenshots
-*(Add screenshots of the Analyzer and Builder pages here before submitting.)*
-
----
-
-## 👤 Author
-Anupriya — AI/ML student, Week 1 submission
