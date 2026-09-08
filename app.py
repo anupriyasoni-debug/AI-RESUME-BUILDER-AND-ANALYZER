@@ -7,6 +7,7 @@ from analyzer import extract_text, analyze_resume
 from resume_builder import resume_builder_page
 from pdf_generator import generate_resume_pdf
 from style import CUSTOM_CSS
+from icons import icon, icon_badge
 
 load_dotenv()
 
@@ -21,9 +22,13 @@ def render_badges(items, css_class, empty_text="None detected"):
     return f"<div>{spans}</div>"
 
 
-def render_card(heading, body_html):
+def section_heading(icon_name, text, bg="#eef2ff", color="#4f46e5"):
+    return f"{icon_badge(icon_name, size=16, badge_size=32, bg=bg, color=color, extra_class='icon-badge-section')}{text}"
+
+
+def render_card(heading_html, body_html):
     st.markdown(
-        f"<div class='custom-card'><div class='section-heading'>{heading}</div>{body_html}</div>",
+        f"<div class='custom-card'><div class='section-heading'>{heading_html}</div>{body_html}</div>",
         unsafe_allow_html=True
     )
 
@@ -58,15 +63,38 @@ def score_gauge(score):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def hero(title, subtitle):
+def hero(icon_name, title, subtitle):
     st.markdown(
-        f"<div class='hero-header'><h1>{title}</h1><p>{subtitle}</p></div>",
+        f"""<div class='hero-header'><div class='hero-header-inner'>
+        <div class='hero-title-row'>{icon_badge(icon_name, size=24, badge_size=46, bg="rgba(255,255,255,0.2)", color="white", extra_class="icon-badge-hero")}
+        <h1>{title}</h1></div>
+        <p>{subtitle}</p></div></div>""",
         unsafe_allow_html=True
     )
 
 
+def feature_grid():
+    features = [
+        ("target", "Keyword Alignment", "Matches your skills and terms against common ATS keyword checks."),
+        ("phone", "Contact Info", "Confirms your email, phone, and LinkedIn are easy to find."),
+        ("edit", "Formatting", "Reviews structure, section completeness, and action-verb usage."),
+    ]
+    items_html = "".join(
+        f"""<div class='feature-item'>
+            {icon_badge(name, size=20, badge_size=44, bg="#f5f3ff", color="#7c3aed", extra_class="icon-badge-feature")}
+            <h4>{title}</h4><p>{desc}</p>
+        </div>"""
+        for name, title, desc in features
+    )
+    st.markdown(f"<div class='feature-grid'>{items_html}</div>", unsafe_allow_html=True)
+
+
 def main():
-    st.sidebar.markdown("## 📄 AI Resume Toolkit")
+    st.sidebar.markdown(
+        f"<div class='sidebar-brand-row'>{icon_badge('file-text', size=18, badge_size=32, bg='rgba(255,255,255,0.1)', color='#c4b5fd', extra_class='icon-badge-sidebar')}"
+        f"<span class='brand-text'>AI Resume Toolkit</span></div>",
+        unsafe_allow_html=True
+    )
     st.sidebar.caption("Analyze. Improve. Build. Land the interview.")
     page = st.sidebar.radio("Navigate", ["🔍 Resume Analyzer", "🛠️ Resume Builder"], label_visibility="collapsed")
 
@@ -88,15 +116,16 @@ def main():
 
 
 def analyzer_page(use_openai):
-    hero("🔍 AI Resume Analyzer", "Upload your resume and get an instant ATS score with tailored improvement tips.")
+    hero("search", "AI Resume Analyzer", "Upload your resume and get an instant ATS score with tailored improvement tips.")
 
-    uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=["pdf", "docx"])
+    st.markdown(
+        f"<div class='upload-card-label'>{icon_badge('upload', size=16, badge_size=30, bg='#eef2ff', color='#4f46e5', extra_class='icon-badge-section')}Upload your resume</div>",
+        unsafe_allow_html=True
+    )
+    uploaded_file = st.file_uploader("Upload your resume", type=["pdf", "docx"], label_visibility="collapsed")
 
     if uploaded_file is None:
-        st.markdown(
-            "<div class='custom-card'><span class='empty-hint'>👆 Drop a PDF or DOCX resume above to get started.</span></div>",
-            unsafe_allow_html=True
-        )
+        feature_grid()
         return
 
     with st.spinner("Reading your resume..."):
@@ -114,36 +143,40 @@ def analyzer_page(use_openai):
     col_gauge, col_stats = st.columns([1, 1.4])
     with col_gauge:
         with st.container(border=True):
-            st.markdown("<div class='section-heading'>Your ATS Score</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='section-heading'>{section_heading('bar-chart', 'Your ATS Score')}</div>", unsafe_allow_html=True)
             score_gauge(score)
 
     with col_stats:
         c1, c2 = st.columns(2)
-        c1.metric("📊 Word Count", result["word_count"])
+        c1.metric("📄 Word Count", result["word_count"])
         c2.metric("🧩 Sections Found", f'{len(result["sections_found"])}/{len(result["sections_found"]) + len(result["missing_sections"])}')
         c3, c4 = st.columns(2)
-        c3.metric("🛠️ Skills Detected", len(result["skills_found"]))
+        c3.metric("⚡ Skills Detected", len(result["skills_found"]))
         rating = "Excellent" if score >= 75 else "Needs Work" if score >= 50 else "Low"
-        c4.metric("🏷️ Rating", rating)
+        c4.metric("🏆 Rating", rating)
 
     col1, col2 = st.columns(2)
     with col1:
-        render_card("✅ Detected Skills", render_badges(result["skills_found"], "badge-skill", "No standard skills detected."))
-        render_card("📑 Sections Found", render_badges(result["sections_found"], "badge-found"))
+        render_card(section_heading("check-circle", "Detected Skills", "#ecfdf5", "#059669"),
+                    render_badges(result["skills_found"], "badge-skill", "No standard skills detected."))
+        render_card(section_heading("layers", "Sections Found", "#eef2ff", "#4f46e5"),
+                    render_badges(result["sections_found"], "badge-found"))
     with col2:
-        render_card("⚠️ Missing Sections", render_badges(result["missing_sections"], "badge-missing", "All key sections present! 🎉"))
+        render_card(section_heading("alert-triangle", "Missing Sections", "#fef2f2", "#dc2626"),
+                    render_badges(result["missing_sections"], "badge-missing", "All key sections present! 🎉"))
 
     suggestions_html = "".join(
-        f"<div class='suggestion-item'>💡 {s}</div>" for s in result["suggestions"]
+        f"<div class='suggestion-item'>{icon_badge('lightbulb', size=14, badge_size=24, bg='#fef3c7', color='#b45309')}{s}</div>"
+        for s in result["suggestions"]
     )
-    render_card("Improvement Suggestions", suggestions_html)
+    render_card(section_heading("sparkles", "Improvement Suggestions", "#fdf4ff", "#a21caf"), suggestions_html)
 
     with st.expander("View Extracted Text"):
         st.text_area("Extracted Resume Text", text, height=280, label_visibility="collapsed")
 
 
 def builder_page():
-    hero("🛠️ Resume Builder", "Fill in your details and generate a clean, ATS-friendly resume PDF in minutes.")
+    hero("tool", "Resume Builder", "Fill in your details and generate a clean, ATS-friendly resume PDF in minutes.")
 
     data = resume_builder_page()
 
