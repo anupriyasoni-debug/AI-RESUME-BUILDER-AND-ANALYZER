@@ -1,93 +1,69 @@
 from fpdf import FPDF
+import io
 
 
-class ResumePDF(FPDF):
-    def section_title(self, title):
-        self.set_font("Helvetica", "B", 12)
-        self.set_text_color(30, 30, 30)
-        self.cell(0, 8, title.upper(), ln=True)
-        self.set_draw_color(50, 50, 50)
+class CleanResume(FPDF):
+    def section_header(self, title):
+        self.set_font("Helvetica", "B", 11)
+        self.set_text_color(30, 41, 59)
+        self.cell(0, 6, title.upper(), ln=True)
+        self.set_draw_color(148, 163, 184)
+        self.set_line_width(0.3)
         self.line(self.get_x(), self.get_y(), self.get_x() + 190, self.get_y())
-        self.ln(3)
-
-    def body_text(self, text, size=10):
-        self.set_font("Helvetica", "", size)
-        self.set_text_color(0, 0, 0)
-        self.multi_cell(0, 6, text)
-        self.ln(1)
+        self.ln(2)
 
 
-def generate_resume_pdf(data: dict) -> bytes:
-    pdf = ResumePDF(format="A4")
+def build_pdf(data):
+    pdf = CleanResume(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    pdf.set_font("Helvetica", "B", 20)
-    pdf.cell(0, 10, data.get("name", "Your Name"), ln=True)
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 8, data.get("name", "Candidate Name"), ln=True, align="C")
 
-    contact_bits = [data.get("email", ""), data.get("phone", ""),
-                     data.get("location", ""), data.get("linkedin", "")]
-    contact_line = " | ".join([c for c in contact_bits if c])
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(80, 80, 80)
-    pdf.cell(0, 6, contact_line, ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(4)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(100, 116, 139)
+    contact = f"{data.get('email', '')}  |  {data.get('phone', '')}  |  {data.get('linkedin', '')}"
+    pdf.cell(0, 5, contact, ln=True, align="C")
+    pdf.ln(5)
 
-    if data.get("summary"):
-        pdf.section_title("Professional Summary")
-        pdf.body_text(data["summary"])
+    def write_section(title, text):
+        if text and text.strip():
+            pdf.section_header(title)
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_text_color(51, 65, 85)
+            pdf.multi_cell(0, 4.5, text.strip())
+            pdf.ln(3)
 
-    if data.get("skills"):
-        pdf.section_title("Skills")
-        pdf.body_text(", ".join(data["skills"]))
+    write_section("Professional Summary", data.get("summary"))
+    write_section("Technical & Core Skills", data.get("skills"))
+    write_section("Work Experience", data.get("experience"))
+    write_section("Key Projects", data.get("projects"))
+    write_section("Education", data.get("education"))
+    write_section("Certifications", data.get("certifications"))
 
-    if data.get("experience"):
-        entries = [e for e in data["experience"] if any(e.values())]
-        if entries:
-            pdf.section_title("Work Experience")
-            for exp in entries:
-                pdf.set_font("Helvetica", "B", 11)
-                pdf.cell(0, 6, f'{exp.get("role", "")} - {exp.get("company", "")}', ln=True)
-                pdf.set_font("Helvetica", "I", 9)
-                pdf.set_text_color(100, 100, 100)
-                pdf.cell(0, 5, exp.get("duration", ""), ln=True)
-                pdf.set_text_color(0, 0, 0)
-                pdf.body_text(exp.get("description", ""))
+    buffer = io.BytesIO()
+    buffer.write(pdf.output())
+    buffer.seek(0)
+    return buffer
 
-    if data.get("projects"):
-        entries = [p for p in data["projects"] if any(p.values())]
-        if entries:
-            pdf.section_title("Projects")
-            for proj in entries:
-                pdf.set_font("Helvetica", "B", 11)
-                pdf.cell(0, 6, proj.get("title", ""), ln=True)
-                if proj.get("tech"):
-                    pdf.set_font("Helvetica", "I", 9)
-                    pdf.set_text_color(100, 100, 100)
-                    pdf.cell(0, 5, f'Tech: {proj["tech"]}', ln=True)
-                    pdf.set_text_color(0, 0, 0)
-                pdf.body_text(proj.get("description", ""))
 
-    if data.get("education"):
-        entries = [e for e in data["education"] if any(e.values())]
-        if entries:
-            pdf.section_title("Education")
-            for edu in entries:
-                pdf.set_font("Helvetica", "B", 11)
-                pdf.cell(0, 6, f'{edu.get("degree", "")} - {edu.get("institute", "")}', ln=True)
-                pdf.set_font("Helvetica", "", 9)
-                pdf.set_text_color(100, 100, 100)
-                line = edu.get("year", "")
-                if edu.get("score"):
-                    line += f'  |  Score: {edu["score"]}'
-                pdf.cell(0, 5, line, ln=True)
-                pdf.set_text_color(0, 0, 0)
-                pdf.ln(1)
-
-    if data.get("certifications"):
-        pdf.section_title("Certifications")
-        for cert in data["certifications"]:
-            pdf.body_text(f"- {cert}", size=10)
-
-    return bytes(pdf.output())
+def generate_resume_pdf(data: dict) -> bytes:
+    """Convert the existing builder payload to the clean text layout."""
+    flat_data = dict(data)
+    flat_data["skills"] = ", ".join(data.get("skills", []))
+    flat_data["experience"] = "\n\n".join(
+        f"{item.get('role', '')} - {item.get('company', '')} ({item.get('duration', '')})\n{item.get('description', '')}"
+        for item in data.get("experience", []) if any(item.values())
+    )
+    flat_data["projects"] = "\n\n".join(
+        f"{item.get('title', '')} ({item.get('tech', '')})\n{item.get('description', '')}"
+        for item in data.get("projects", []) if any(item.values())
+    )
+    flat_data["education"] = "\n".join(
+        f"{item.get('degree', '')} - {item.get('institute', '')} ({item.get('year', '')})"
+        for item in data.get("education", []) if any(item.values())
+    )
+    flat_data["certifications"] = "\n".join(data.get("certifications", []))
+    return build_pdf(flat_data).getvalue()

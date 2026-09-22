@@ -1,170 +1,178 @@
+import os
 import re
-from PyPDF2 import PdfReader
+import io
 import docx
+from pypdf import PdfReader
+from dotenv import load_dotenv
 
-SKILLS_DB = [
-    "python", "java", "c++", "c", "c#", "javascript", "typescript", "html", "css", "sql", "r",
-    "react", "angular", "vue", "node.js", "express", "django", "flask", "fastapi", "spring",
-    "streamlit", "tensorflow", "pytorch", "keras", "scikit-learn", "pandas", "numpy",
-    "matplotlib", "seaborn", "opencv", "nlp", "machine learning", "deep learning",
-    "data analysis", "data science", "data visualization", "power bi", "tableau",
-    "excel", "mongodb", "mysql", "postgresql", "sqlite", "firebase", "aws", "azure", "gcp",
-    "docker", "kubernetes", "git", "github", "gitlab", "ci/cd", "linux", "bash", "rest api",
-    "graphql", "agile", "scrum", "project management", "communication", "teamwork",
-    "leadership", "problem solving", "time management", "critical thinking"
-]
+load_dotenv()
 
-SECTION_KEYWORDS = {
-    "contact": ["email", "phone", "linkedin", "contact"],
-    "summary": ["summary", "objective", "profile"],
-    "education": ["education", "academic", "degree", "university", "college", "school"],
-    "experience": ["experience", "work history", "employment", "internship"],
-    "skills": ["skills", "technical skills", "competencies"],
-    "projects": ["projects", "project"],
-    "certifications": ["certification", "certificate", "certifications"],
+# Taxonomy for the 10 Trending Jobs
+JOB_TAXONOMY = {
+    "AI Engineer": {
+        "skills": ["python", "pytorch", "tensorflow", "transformers", "hugging face", "llms", "deep learning", "machine learning", "docker", "mlops", "vector databases", "langchain"],
+        "keywords": ["model training", "fine-tuning", "inference", "neural networks", "embeddings"]
+    },
+    "AI Prompt Engineer": {
+        "skills": ["prompt engineering", "few-shot learning", "rag", "chain-of-thought", "langchain", "llamaindex", "python", "gpt-4", "claude", "system prompts", "token optimization"],
+        "keywords": ["evaluation", "hallucination mitigation", "context window", "agentic workflows"]
+    },
+    "Data Scientist": {
+        "skills": ["python", "r", "sql", "pandas", "numpy", "scikit-learn", "data visualization", "tableau", "power bi", "statistics", "feature engineering", "predictive modeling"],
+        "keywords": ["eda", "hypothesis testing", "regression", "clustering", "a/b testing"]
+    },
+    "Information Security Analyst": {
+        "skills": ["siem", "soc", "penetration testing", "firewalls", "incident response", "vulnerability assessment", "wireshark", "iso 27001", "nist", "network security", "linux"],
+        "keywords": ["threat analysis", "risk mitigation", "compliance", "cryptography", "zero trust"]
+    },
+    "Cloud DevOps Engineer": {
+        "skills": ["aws", "azure", "gcp", "docker", "kubernetes", "terraform", "ci/cd", "jenkins", "github actions", "linux", "bash", "ansible", "prometheus"],
+        "keywords": ["infrastructure as code", "containerization", "monitoring", "scalability", "pipeline"]
+    },
+    "ESG Sustainability Manager": {
+        "skills": ["esg reporting", "carbon accounting", "sustainability reporting", "ghg protocol", "gri standards", "csrd", "tcfd", "environmental compliance", "lca", "auditing"],
+        "keywords": ["decarbonization", "scope 1 2 3", "governance", "circular economy", "net-zero"]
+    },
+    "Digital Marketing Manager": {
+        "skills": ["seo", "sem", "google analytics", "google ads", "social media marketing", "meta ads", "email marketing", "content strategy", "hubspot", "copywriting", "cro"],
+        "keywords": ["campaign management", "cac", "roas", "funnel optimization", "retention"]
+    },
+    "Financial Manager": {
+        "skills": ["financial modeling", "forecasting", "budgeting", "financial analysis", "excel", "gaap", "ifrs", "variance analysis", "cash flow management", "sap", "erp"],
+        "keywords": ["p&l", "balance sheet", "working capital", "risk assessment", "financial reporting"]
+    },
+    "Semiconductor Design Engineer": {
+        "skills": ["verilog", "systemverilog", "vlsi", "asic design", "fpga", "rtl design", "synopsys", "cadence", "static timing analysis", "sta", "physical design", "tcl"],
+        "keywords": ["synthesis", "logic synthesis", "wafer", "silicon", "tapeout", "verification"]
+    },
+    "UX/UI Designer": {
+        "skills": ["figma", "wireframing", "prototyping", "user research", "usability testing", "design systems", "information architecture", "ui design", "ux design", "responsive design"],
+        "keywords": ["user journeys", "heuristics", "mockups", "interaction design", "accessibility"]
+    }
 }
 
+EXPECTED_SECTIONS = {
+    "contact": ["email", "phone", "linkedin", "github", "contact"],
+    "summary": ["summary", "objective", "profile", "about me"],
+    "education": ["education", "academic", "university", "degree", "b.tech", "b.e", "bachelor"],
+    "experience": ["experience", "employment", "work history", "internship", "professional experience"],
+    "skills": ["skills", "technical skills", "competencies", "technologies"],
+    "projects": ["projects", "academic projects", "key projects"],
+    "certifications": ["certifications", "licenses", "certificates"]
+}
 
-def extract_text_from_pdf(file) -> str:
-    text = ""
+def extract_text_from_pdf(uploaded_file):
+    """Safely extracts selectable text from a PDF stream."""
     try:
-        reader = PdfReader(file)
+        uploaded_file.seek(0)
+        pdf_bytes = io.BytesIO(uploaded_file.read())
+        reader = PdfReader(pdf_bytes)
+
+        extracted_chunks = []
         for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-    except Exception:
-        text = ""
-    return text
+            text = page.extract_text()
+            if text:
+                extracted_chunks.append(text)
+
+        return "\n".join(extracted_chunks).strip()
+    except Exception as e:
+        print(f"PDF extraction error: {e}")
+        return ""
 
 
-def extract_text_from_docx(file) -> str:
-    text = ""
+def extract_text_from_docx(uploaded_file):
+    """Safely extracts text from a DOCX stream."""
     try:
-        document = docx.Document(file)
-        for para in document.paragraphs:
-            text += para.text + "\n"
-        for table in document.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    text += cell.text + " "
-    except Exception:
-        text = ""
-    return text
+        uploaded_file.seek(0)
+        doc = docx.Document(uploaded_file)
+        full_text = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
+        return "\n".join(full_text).strip()
+    except Exception as e:
+        print(f"DOCX extraction error: {e}")
+        return ""
 
 
-def extract_text(uploaded_file) -> str:
+def extract_text(uploaded_file):
+    """Router for uploaded file extraction."""
     filename = uploaded_file.name.lower()
     if filename.endswith(".pdf"):
         return extract_text_from_pdf(uploaded_file)
-    elif filename.endswith(".docx"):
+    if filename.endswith(".docx"):
         return extract_text_from_docx(uploaded_file)
     return ""
 
+def analyze_resume(text, target_role=None, pasted_jd=None):
+    """
+    Performs full extraction, section auditing, keyword gap analysis,
+    and returns a weighted ATS score (0-100).
+    """
+    lower_text = text.lower()
+    
+    # 1. Section Completeness (30%)
+    sections_found = {}
+    missing_sections = []
+    for sec, kws in EXPECTED_SECTIONS.items():
+        found = any(re.search(rf"\b{re.escape(k)}\b", lower_text) for k in kws)
+        sections_found[sec] = found
+        if not found:
+            missing_sections.append(sec)
+    section_score = int(((len(EXPECTED_SECTIONS) - len(missing_sections)) / len(EXPECTED_SECTIONS)) * 30)
 
-def detect_skills(text: str):
-    text_lower = text.lower()
-    found = []
-    for skill in SKILLS_DB:
-        pattern = r"\b" + re.escape(skill) + r"\b"
-        if re.search(pattern, text_lower):
-            found.append(skill)
-    return sorted(set(found))
-
-
-def detect_sections(text: str):
-    text_lower = text.lower()
-    found_sections, missing_sections = [], []
-    for section, keywords in SECTION_KEYWORDS.items():
-        if any(kw in text_lower for kw in keywords):
-            found_sections.append(section)
-        else:
-            missing_sections.append(section)
-    return found_sections, missing_sections
-
-
-def calculate_ats_score(text: str, skills_found: list, sections_found: list, missing_sections: list) -> int:
-    score = 0
-
-    total_sections = len(sections_found) + len(missing_sections)
-    section_score = (len(sections_found) / total_sections) * 40 if total_sections else 0
-    score += section_score
-
-    skill_score = min(len(skills_found), 15) / 15 * 30
-    score += skill_score
-
-    word_count = len(text.split())
-    if 300 <= word_count <= 900:
-        length_score = 15
-    elif word_count < 300:
-        length_score = max(0, (word_count / 300) * 15)
+    # 2. Target Role & Keyword Alignment (40%)
+    matched_skills = []
+    missing_skills = []
+    
+    if target_role and target_role in JOB_TAXONOMY:
+        expected_skills = JOB_TAXONOMY[target_role]["skills"]
+        for skill in expected_skills:
+            if re.search(rf"\b{re.escape(skill)}\b", lower_text):
+                matched_skills.append(skill)
+            else:
+                missing_skills.append(skill)
+        match_rate = len(matched_skills) / len(expected_skills) if expected_skills else 0
+        role_score = int(match_rate * 40)
     else:
-        length_score = max(0, 15 - ((word_count - 900) / 100))
-    score += length_score
+        # Fallback generic score if no role picked
+        role_score = 25
 
-    action_verbs = ["managed", "developed", "led", "created", "built", "designed",
-                     "implemented", "improved", "achieved", "analyzed", "organized"]
-    verb_hits = sum(1 for v in action_verbs if v in text.lower())
-    formatting_score = min(verb_hits, 10) / 10 * 15
-    score += formatting_score
+    # 3. Action Verbs & Quantified Metrics (15%)
+    action_verbs = ["developed", "led", "managed", "designed", "engineered", "built", "spearheaded", "optimized", "increased", "reduced"]
+    verbs_count = sum(1 for v in action_verbs if re.search(rf"\b{re.escape(v)}\b", lower_text))
+    impact_score = min(15, verbs_count * 3)
 
-    return round(min(score, 100))
+    # 4. Resume Length & Density (15%)
+    words = len(text.split())
+    if 350 <= words <= 900:
+        length_score = 15
+    elif 200 <= words < 350 or 900 < words <= 1200:
+        length_score = 8
+    else:
+        length_score = 4
 
-
-def generate_suggestions_rule_based(skills_found, missing_sections, word_count):
-    suggestions = []
-    if missing_sections:
-        suggestions.append(f"Add missing sections: {', '.join(missing_sections)}.")
-    if len(skills_found) < 5:
-        suggestions.append("Add more relevant technical skills to strengthen keyword matching.")
-    if word_count < 300:
-        suggestions.append("Your resume looks too short. Add more detail about your experience and projects.")
-    if word_count > 900:
-        suggestions.append("Your resume is quite long. Try to make it more concise (ideally 1-2 pages).")
-    suggestions.append("Use strong action verbs like 'developed', 'led', 'implemented' to describe achievements.")
-    suggestions.append("Quantify achievements with numbers wherever possible (e.g., 'improved performance by 20%').")
-    suggestions.append("Make sure contact info (email, phone, LinkedIn) is clearly visible at the top.")
-    return suggestions
-
-
-def get_ai_suggestions(text: str, skills_found, missing_sections, word_count, use_openai=False):
-    if use_openai:
-        try:
-            from openai import OpenAI
-            import os
-            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            prompt = (
-                "You are a professional resume reviewer. Analyze this resume text and provide "
-                "5 concise, actionable improvement suggestions as a bullet list. Be specific and practical.\n\n"
-                f"Resume text:\n{text[:3000]}"
-            )
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=400,
-            )
-            content = response.choices[0].message.content
-            suggestions = [line.strip("-• ").strip() for line in content.split("\n") if line.strip()]
-            return suggestions
-        except Exception as e:
-            fallback = generate_suggestions_rule_based(skills_found, missing_sections, word_count)
-            fallback.insert(0, f"(AI suggestions unavailable, showing rule-based tips. Reason: {e})")
-            return fallback
-    return generate_suggestions_rule_based(skills_found, missing_sections, word_count)
-
-
-def analyze_resume(text: str, use_openai: bool = False) -> dict:
-    skills_found = detect_skills(text)
-    sections_found, missing_sections = detect_sections(text)
-    word_count = len(text.split())
-    ats_score = calculate_ats_score(text, skills_found, sections_found, missing_sections)
-    suggestions = get_ai_suggestions(text, skills_found, missing_sections, word_count, use_openai=use_openai)
+    total_score = min(100, section_score + role_score + impact_score + length_score)
 
     return {
-        "skills_found": skills_found,
-        "sections_found": sections_found,
+        "total_score": total_score,
+        "section_score": section_score,
+        "role_score": role_score,
+        "impact_score": impact_score,
+        "length_score": length_score,
+        "matched_skills": matched_skills,
+        "missing_skills": missing_skills,
         "missing_sections": missing_sections,
-        "word_count": word_count,
-        "ats_score": ats_score,
-        "suggestions": suggestions,
+        "word_count": words
     }
+
+def generate_suggestions(results, target_role):
+    """Produces structured improvement recommendations."""
+    tips = []
+    if results["missing_sections"]:
+        tips.append(f"**Add Key Sections:** Missing `{', '.join(results['missing_sections'])}`.")
+    if results["missing_skills"]:
+        sample_missing = ", ".join(results["missing_skills"][:5])
+        tips.append(f"**Add High-Demand Keywords for {target_role}:** Consider integrating `{sample_missing}`.")
+    if results["impact_score"] < 12:
+        tips.append("**Add Quantifiable Impact:** Use more strong action verbs (e.g., *Spearheaded*, *Optimized*) and include measurable numerical results (%, $, counts).")
+    if results["length_score"] < 15:
+        tips.append(f"**Adjust Length:** Your resume contains {results['word_count']} words. The recommended ATS range is 400–800 words.")
+    return tips
