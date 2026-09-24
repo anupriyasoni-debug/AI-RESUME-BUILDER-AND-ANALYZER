@@ -4,193 +4,178 @@ from analyzer import (
     JOB_TAXONOMY,
     analyze_resume,
     extract_text,
-    generate_optimized_resume,
     generate_suggestions,
-    refine_bullet_point,
 )
-from pdf_generator import generate_custom_pdf
-from style import CUSTOM_CSS
+from pdf_generator import build_pdf
 
 
 st.set_page_config(page_title="Resumer | AI Resume Builder & Analyzer", layout="wide")
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-
-def render_badges(items, badge_class):
-    if not items:
-        st.caption("None detected yet.")
-        return
-    badges = "".join(f'<span class="badge {badge_class}">{item}</span>' for item in items)
-    st.markdown(badges, unsafe_allow_html=True)
-
-
-def render_analysis(text, target_role):
-    results = analyze_resume(text, target_role=target_role)
-    suggestions = generate_suggestions(results, target_role)
-
-    metric_columns = st.columns(4)
-    metric_columns[0].metric("ATS score", f"{results['total_score']} / 100")
-    metric_columns[1].metric("Role fit", f"{results['role_score']} / 40")
-    metric_columns[2].metric("Completeness", f"{results['section_score']} / 30")
-    metric_columns[3].metric("Word count", results["word_count"])
-    st.progress(results["total_score"] / 100)
-
-    left, right = st.columns(2)
-    with left:
-        st.markdown('<div class="section-heading">Matched skills</div>', unsafe_allow_html=True)
-        render_badges(results["matched_skills"], "badge-found")
-    with right:
-        st.markdown('<div class="section-heading">Missing target skills</div>', unsafe_allow_html=True)
-        render_badges(results["missing_skills"], "badge-missing")
-
-    if suggestions:
-        st.markdown('<div class="section-heading">Tailored recommendations</div>', unsafe_allow_html=True)
-        for suggestion in suggestions:
-            st.markdown(f'<div class="suggestion-item">{suggestion}</div>', unsafe_allow_html=True)
-    return results
-
-
-def render_home():
-    st.markdown(
-        """
-        <div class="hero-header">
-            <div class="hero-header-inner">
-                <div class="eyebrow">AI resume workspace</div>
-                <h1>Make your next application easier to find.</h1>
-                <p>Measure ATS alignment, sharpen your strongest evidence, and export a clean resume from one focused workspace.</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="section-heading">A clear path from draft to shortlist</div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div class="feature-grid">
-            <div class="feature-item"><div class="icon-badge icon-badge-feature">01</div><h4>Diagnose</h4><p>See role-specific skills, missing sections, impact language, and a weighted ATS score.</p></div>
-            <div class="feature-item"><div class="icon-badge icon-badge-feature">02</div><h4>Improve</h4><p>Rewrite the full resume or polish individual bullets while keeping the original beside it.</p></div>
-            <div class="feature-item"><div class="icon-badge icon-badge-feature">03</div><h4>Export</h4><p>Build a compact PDF with the typography, accent color, and spacing that suit your style.</p></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.info("Choose Upload & Dual Analyzer in the sidebar to start with an existing resume, or open Resume Builder to create one from scratch.")
-
-
-def render_analyzer():
-    st.markdown('<div class="eyebrow">Resume intelligence</div>', unsafe_allow_html=True)
-    st.title("Upload & Dual Analyzer")
-    st.caption("Compare your source resume with an ATS-focused rewrite and keep both versions visible while you edit.")
-
-    role_column, upload_column = st.columns([0.9, 1.1])
-    with role_column:
-        target_role = st.selectbox("Target job profile", list(JOB_TAXONOMY.keys()))
-    with upload_column:
-        uploaded_file = st.file_uploader("Upload PDF or DOCX", type=["pdf", "docx"])
-
-    if not uploaded_file:
-        st.markdown('<div class="empty-hint">Your analysis will appear here after you upload a resume.</div>', unsafe_allow_html=True)
-        return
-
-    with st.spinner("Reading your resume and checking ATS alignment..."):
-        text = extract_text(uploaded_file)
-    if not text:
-        st.error("Could not extract readable text. The document may be scanned or empty.")
-        return
-
-    st.divider()
-    results = render_analysis(text, target_role)
-
-    st.divider()
-    st.markdown('<div class="section-heading">Side-by-side optimizer</div>', unsafe_allow_html=True)
-    st.caption("The rewrite uses your detected keyword gaps. Review every suggested claim before using it.")
-    if st.button("Generate optimized version", type="primary"):
-        with st.spinner("Drafting an ATS-focused version..."):
-            optimized_text = generate_optimized_resume(text, target_role, results["missing_skills"])
-        original_column, optimized_column = st.columns(2)
-        with original_column:
-            st.markdown("**Original resume**")
-            st.text_area("Original resume text", text, height=520, label_visibility="collapsed")
-        with optimized_column:
-            st.markdown("**Optimized draft**")
-            st.text_area("Optimized resume text", optimized_text, height=520, label_visibility="collapsed")
-
-    st.divider()
-    st.markdown('<div class="section-heading">Bullet polisher</div>', unsafe_allow_html=True)
-    bullet = st.text_area("Paste one bullet point", placeholder="Worked on an internal dashboard", key="bullet_input")
-    if st.button("Polish bullet", disabled=not bullet.strip()):
-        st.success(refine_bullet_point(bullet, target_role))
-
-
-def render_builder():
-    st.markdown('<div class="eyebrow">Document studio</div>', unsafe_allow_html=True)
-    st.title("Resume Builder")
-    st.caption("Fill in the essentials, tune the visual system, and download an ATS-friendly PDF.")
-
-    with st.form("resume_builder_form"):
-        identity_column, contact_column = st.columns(2)
-        with identity_column:
-            name = st.text_input("Full name", placeholder="e.g. Mahak Sahu")
-            email = st.text_input("Email", placeholder="name@example.com")
-        with contact_column:
-            phone = st.text_input("Phone number", placeholder="+91 9876543210")
-            linkedin = st.text_input("LinkedIn profile", placeholder="linkedin.com/in/username")
-
-        summary = st.text_area("Professional summary", placeholder="Brief 2-3 sentence career summary...")
-        skills = st.text_area("Core skills", placeholder="Python, SQL, Git, PyTorch, Docker")
-        experience = st.text_area("Work experience", placeholder="Job Title - Company (Year)\nBuilt...\nImproved...")
-        projects = st.text_area("Key projects", placeholder="Project Name | Tech Stack\nDeveloped...")
-        education = st.text_area("Education", placeholder="B.Tech in Artificial Intelligence & Machine Learning\nUniversity (2025 - Present)")
-        certifications = st.text_area("Certifications", placeholder="AWS Certified Cloud Practitioner")
-
-        st.markdown("**Customize your PDF**")
-        style_column, color_column, spacing_column = st.columns(3)
-        with style_column:
-            font_choice = st.selectbox("Font", ["Helvetica", "Times", "Courier"])
-            template = st.selectbox("Template", ["Classic Single Column"])
-        with color_column:
-            color_name = st.selectbox("Accent color", ["Blue", "Emerald", "Slate", "Rose"])
-        with spacing_column:
-            spacing = st.slider("Section spacing", 2.0, 8.0, 4.0, 0.5)
-
-        submitted = st.form_submit_button("Generate resume PDF", type="primary")
-
-    if submitted:
-        color_map = {"Blue": "#2563EB", "Emerald": "#059669", "Slate": "#475569", "Rose": "#E11D48"}
-        resume_data = {
-            "name": name,
-            "email": email,
-            "phone": phone,
-            "linkedin": linkedin,
-            "summary": summary,
-            "skills": skills,
-            "experience": experience,
-            "projects": projects,
-            "education": education,
-            "certifications": certifications,
-        }
-        pdf_file = generate_custom_pdf(
-            resume_data,
-            font_choice=font_choice,
-            color_hex=color_map[color_name],
-            template=template,
-            spacing=spacing,
-        )
-        st.success("Resume generated successfully.")
-        st.download_button(
-            "Download resume PDF",
-            data=pdf_file.getvalue(),
-            file_name="ATS_Resume.pdf",
-            mime="application/pdf",
-        )
+st.markdown(
+    """
+    <style>
+    @keyframes meshShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    :root {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #dbe3ee;
+        --accent: #4f46e5;
+        --panel: rgba(255, 255, 255, 0.88);
+    }
+    .stApp {
+        background: linear-gradient(120deg, #f8fafc, #eef2ff, #ecfeff, #f8fafc);
+        background-size: 300% 300%;
+        animation: meshShift 18s ease infinite;
+    }
+    .block-container { max-width: 1240px; padding-top: 2rem; }
+    .hero {
+        padding: 2.5rem 2.8rem;
+        border: 1px solid rgba(255,255,255,.8);
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(15,23,42,.96), rgba(30,41,59,.92));
+        color: #f8fafc;
+        box-shadow: 0 18px 55px rgba(15,23,42,.16);
+    }
+    .hero h1 { margin: .35rem 0 .7rem; font-size: clamp(2rem, 5vw, 4.4rem); line-height: 1; }
+    .eyebrow { color: #67e8f9; font-size: .75rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .hero p { max-width: 720px; color: #cbd5e1; font-size: 1.05rem; }
+    .preview-card { min-height: 190px; padding: 1.2rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 24px rgba(15,23,42,.06); }
+    .preview-card h4 { margin: .25rem 0 .8rem; color: var(--ink); }
+    .preview-card p { color: var(--muted); font-size: .88rem; }
+    .preview-card strong { color: var(--ink); }
+    .capability { min-height: 175px; padding: 1rem; border-top: 3px solid var(--accent); background: rgba(255,255,255,.72); }
+    .capability h4 { color: var(--ink); margin: .3rem 0; }
+    .swatch { display: flex; align-items: center; gap: .65rem; margin-top: .5rem; color: var(--ink); font-family: monospace; }
+    .swatch span { width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgba(15,23,42,.18); background: var(--swatch); }
+    .font-preview { padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: rgba(255,255,255,.78); }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 st.sidebar.title("Resumer Studio")
 page = st.sidebar.radio("Navigation", ["Home / Overview", "Upload & Dual Analyzer", "Resume Builder"])
 
+
 if page == "Home / Overview":
-    render_home()
+    st.markdown(
+        """
+        <section class="hero">
+            <div class="eyebrow">AI Career Workspace</div>
+            <h1>AI Resume Builder and Analyzer</h1>
+            <p>Bridge your credentials with modern Applicant Tracking Systems through rule-based taxonomy scanning, AI bullet enrichment, and customizable ATS-friendly PDF exports.</p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.subheader("Output Showcase & Template Preview")
+    showcase = [
+        ("Classic Single Column", "ALEX MORGAN", "Senior AI Engineer with 4+ years designing high-throughput NLP systems...", "94/100"),
+        ("Executive Compact", "JORDAN LEE", "Spearheaded cloud migration, reducing pipeline compute costs by 31%...", "91/100"),
+        ("Minimalist Ivy League", "TAYLOR REED", "PyTorch, Python, Transformers, Vector DBs, Kubernetes, MLOps...", "89/100"),
+    ]
+    columns = st.columns(3)
+    for column, (template, name, body, score) in zip(columns, showcase):
+        with column:
+            st.markdown(
+                f'<div class="preview-card"><div class="eyebrow">{template}</div><h4>{name}</h4><p><strong>{body}</strong></p><p>ATS Score: <strong>{score}</strong></p></div>',
+                unsafe_allow_html=True,
+            )
+
+    st.subheader("Platform Capabilities")
+    capabilities = [
+        ("Smart Builder Presets", "Select ATS-ready templates, typography palettes, and custom accent tones."),
+        ("Real-Time AI Assistant", "Transform flat task statements into action-oriented metrics using the Google XYZ formula."),
+        ("ATS Match & Scoring", "Audit resumes against ten career taxonomy tracks with detailed keyword fit."),
+        ("Dual Comparison View", "Compare raw input against the ATS-reconstructed optimized document."),
+    ]
+    columns = st.columns(4)
+    for column, (title, description) in zip(columns, capabilities):
+        with column:
+            st.markdown(f'<div class="capability"><h4>{title}</h4><p>{description}</p></div>', unsafe_allow_html=True)
+
+    st.subheader("What You Will Get")
+    results = st.columns(3)
+    results[0].info("Higher callback probability: keywords tailored to current industry criteria.")
+    results[1].info("Instant gap detection: omitted sections, weak impact phrases, and length issues.")
+    results[2].info("Single-click ATS export: standardized PDFs without unparseable multi-column tables.")
+
+
 elif page == "Upload & Dual Analyzer":
-    render_analyzer()
+    st.header("Resume Analyzer")
+    st.caption("Upload your resume to review ATS alignment, matched skills, missing skills, and recommendations.")
+    role_column, upload_column = st.columns(2)
+    with role_column:
+        target_role = st.selectbox("Select Target Job Domain", list(JOB_TAXONOMY.keys()))
+    with upload_column:
+        uploaded_file = st.file_uploader("Upload Resume (.pdf or .docx)", type=["pdf", "docx"])
+
+    if uploaded_file:
+        raw_text = extract_text(uploaded_file)
+        if not raw_text:
+            st.error("Could not parse selectable text. Please ensure the document is not an image-only scan.")
+        else:
+            results = analyze_resume(raw_text, target_role)
+            score_columns = st.columns(4)
+            score_columns[0].metric("Overall ATS Score", f"{results['total_score']} / 100")
+            score_columns[1].metric("Role Keyword Fit", f"{results['role_score']} / 40")
+            score_columns[2].metric("Completeness", f"{results['section_score']} / 30")
+            score_columns[3].metric("Word Count", results["word_count"])
+            st.progress(results["total_score"] / 100)
+
+            st.divider()
+            matched, missing = st.columns(2)
+            with matched:
+                st.markdown("**Matched Role Competencies**")
+                st.write(", ".join(f"`{skill}`" for skill in results["matched_skills"]) or "None")
+            with missing:
+                st.markdown("**Missing High-Value Role Keywords**")
+                st.write(", ".join(f"`{skill}`" for skill in results["missing_skills"][:10]) or "All core skills detected!")
+
+            st.subheader("Recommendations")
+            for recommendation in generate_suggestions(results, target_role):
+                st.markdown(recommendation)
+
+
 else:
-    render_builder()
+    st.header("Professional Resume Builder")
+    st.caption("Fill in the essentials and export a clean ATS-friendly PDF.")
+
+    with st.form("builder_form"):
+        identity, contact = st.columns(2)
+        with identity:
+            name = st.text_input("Full Name", "Mahak Sahu")
+            email = st.text_input("Email", "mahak@example.com")
+        with contact:
+            phone = st.text_input("Phone Number", "+91 9876543210")
+            linkedin = st.text_input("LinkedIn / Portfolio URL", "linkedin.com/in/mahaksahu")
+        summary = st.text_area("Professional Summary", "Results-driven engineering student specializing in Artificial Intelligence and scalable backend services.")
+        skills = st.text_area("Technical & Core Skills", "Python, PyTorch, C++, SQL, Machine Learning, Docker, Git")
+        experience = st.text_area("Work Experience", "Software Intern - Tech Corp (2025)\nBuilt internal reporting dashboard using Python and SQL, cutting generation time by 30%.")
+        projects = st.text_area("Key Projects", "AI Resume Analyzer & Builder\nArchitected a Streamlit prototype with NLP parsing and automated PDF generation.")
+        education = st.text_area("Education", "B.Tech in Artificial Intelligence & Machine Learning\nMadhav Institute of Technology and Science (2025 - Present)")
+        certifications = st.text_area("Certifications", "NPTEL Mobile VR & AI Certification\nInfosys Springboard Technical Certification")
+        submit = st.form_submit_button("Generate Resume PDF", type="primary")
+
+    if submit:
+        resume_data = {"name": name, "email": email, "phone": phone, "linkedin": linkedin, "summary": summary, "skills": skills, "experience": experience, "projects": projects, "education": education, "certifications": certifications}
+        pdf_buffer = build_pdf(resume_data)
+        st.success("Resume PDF generated successfully!")
+        st.download_button("Download Resume PDF", data=pdf_buffer.getvalue(), file_name=f"{name.replace(' ', '_')}_Resume.pdf", mime="application/pdf")
+
+
+st.markdown(
+    """
+    <div style="text-align:center; padding:2rem 0 1rem; color:#64748b;">
+        © 2026 Resumer Studio. All rights reserved. • Built for modern recruiting systems.<br>
+        <strong>Made by Anupriya Soni and Mahak Sahu</strong>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

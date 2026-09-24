@@ -1,13 +1,12 @@
 import os
 import re
-import io
 import docx
+import io
 from pypdf import PdfReader
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Taxonomy for the 10 Trending Jobs
 JOB_TAXONOMY = {
     "AI Engineer": {
         "skills": ["python", "pytorch", "tensorflow", "transformers", "hugging face", "llms", "deep learning", "machine learning", "docker", "mlops", "vector databases", "langchain"],
@@ -67,18 +66,15 @@ def extract_text_from_pdf(uploaded_file):
         uploaded_file.seek(0)
         pdf_bytes = io.BytesIO(uploaded_file.read())
         reader = PdfReader(pdf_bytes)
-
         extracted_chunks = []
         for page in reader.pages:
             text = page.extract_text()
             if text:
                 extracted_chunks.append(text)
-
         return "\n".join(extracted_chunks).strip()
-    except Exception as e:
-        print(f"PDF extraction error: {e}")
+    except Exception as exc:
+        print(f"PDF extraction error: {exc}")
         return ""
-
 
 def extract_text_from_docx(uploaded_file):
     """Safely extracts text from a DOCX stream."""
@@ -87,10 +83,9 @@ def extract_text_from_docx(uploaded_file):
         doc = docx.Document(uploaded_file)
         full_text = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
         return "\n".join(full_text).strip()
-    except Exception as e:
-        print(f"DOCX extraction error: {e}")
+    except Exception as exc:
+        print(f"DOCX extraction error: {exc}")
         return ""
-
 
 def extract_text(uploaded_file):
     """Router for uploaded file extraction."""
@@ -103,12 +98,9 @@ def extract_text(uploaded_file):
 
 def analyze_resume(text, target_role=None, pasted_jd=None):
     """
-    Performs full extraction, section auditing, keyword gap analysis,
-    and returns a weighted ATS score (0-100).
+    Performs section auditing, keyword gap analysis, and weighted ATS scoring.
     """
     lower_text = text.lower()
-    
-    # 1. Section Completeness (30%)
     sections_found = {}
     missing_sections = []
     for sec, kws in EXPECTED_SECTIONS.items():
@@ -118,10 +110,8 @@ def analyze_resume(text, target_role=None, pasted_jd=None):
             missing_sections.append(sec)
     section_score = int(((len(EXPECTED_SECTIONS) - len(missing_sections)) / len(EXPECTED_SECTIONS)) * 30)
 
-    # 2. Target Role & Keyword Alignment (40%)
     matched_skills = []
     missing_skills = []
-    
     if target_role and target_role in JOB_TAXONOMY:
         expected_skills = JOB_TAXONOMY[target_role]["skills"]
         for skill in expected_skills:
@@ -132,15 +122,12 @@ def analyze_resume(text, target_role=None, pasted_jd=None):
         match_rate = len(matched_skills) / len(expected_skills) if expected_skills else 0
         role_score = int(match_rate * 40)
     else:
-        # Fallback generic score if no role picked
         role_score = 25
 
-    # 3. Action Verbs & Quantified Metrics (15%)
-    action_verbs = ["developed", "led", "managed", "designed", "engineered", "built", "spearheaded", "optimized", "increased", "reduced"]
-    verbs_count = sum(1 for v in action_verbs if re.search(rf"\b{re.escape(v)}\b", lower_text))
+    verbs = ["developed", "led", "managed", "designed", "engineered", "built", "spearheaded", "optimized", "increased", "reduced"]
+    verbs_count = sum(1 for v in verbs if re.search(rf"\b{re.escape(v)}\b", lower_text))
     impact_score = min(15, verbs_count * 3)
 
-    # 4. Resume Length & Density (15%)
     words = len(text.split())
     if 350 <= words <= 900:
         length_score = 15
@@ -176,91 +163,3 @@ def generate_suggestions(results, target_role):
     if results["length_score"] < 15:
         tips.append(f"**Adjust Length:** Your resume contains {results['word_count']} words. The recommended ATS range is 400–800 words.")
     return tips
-
-
-def generate_optimized_resume(raw_text, target_role, missing_skills):
-    """Generate an ATS-focused resume rewrite using OpenAI when configured."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        try:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=api_key)
-            prompt = f"""
-You are an expert resume writer and ATS optimizer.
-Rewrite and clean up the following resume for the target role: '{target_role}'.
-
-Key objectives:
-1. Integrate missing industry keywords organically: {', '.join(missing_skills[:8])}.
-2. Polish bullet points using the Google XYZ formula (accomplished X, measured by Y, by doing Z).
-3. Fix grammar and passive voice issues without inventing experience or metrics.
-4. Keep standard section headings: Professional Summary, Core Skills, Experience, Projects, Education, Certifications.
-
-Original Resume:
-{raw_text[:3500]}
-"""
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-            )
-            return response.choices[0].message.content
-        except Exception:
-            pass
-
-    # Keep the offline path usable when no API key is configured.
-    cleaned_lines = []
-    for line in raw_text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        rewritten = re.sub(
-            r"^(worked on|helped with|responsible for)",
-            "Spearheaded and delivered",
-            stripped,
-            flags=re.IGNORECASE,
-        )
-        cleaned_lines.append(rewritten)
-
-    suggested_skills = ", ".join(skill.title() for skill in missing_skills[:6])
-    optimized_lines = [
-        f"### PROFESSIONAL SUMMARY\nResults-driven {target_role} professional with proven competence across scalable systems, quantifiable problem-solving, and cross-functional execution.",
-        f"### RECOMMENDED CORE SKILLS (ATS TARGETED)\n• Integrated Competencies: {suggested_skills}",
-        "### OPTIMIZED CONTENT & EXPERIENCE",
-    ]
-    optimized_lines.extend(
-        f"• {line}" if not line.startswith("•") and len(line) > 40 else line
-        for line in cleaned_lines[:25]
-    )
-    return "\n".join(optimized_lines)
-
-
-def refine_bullet_point(bullet_text, role="General"):
-    """Rewrite one resume bullet with an optional OpenAI-powered polisher."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        try:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{
-                    "role": "user",
-                    "content": (
-                        "Rewrite this resume bullet into a high-impact, ATS-friendly action "
-                        f"sentence with strong verbs and truthful metrics for a {role} role: "
-                        f"'{bullet_text}'. Return ONLY the refined bullet point."
-                    ),
-                }],
-                temperature=0.3,
-                max_tokens=60,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception:
-            pass
-
-    return (
-        f"Spearheaded {bullet_text.lstrip('• ')}, increasing operational efficiency "
-        "by 22% through automated workflows."
-    )
