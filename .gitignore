@@ -1,0 +1,12 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+resumes.db
+
+# Python virtual environments and generated files
+.venv/
+__pycache__/
+*.py[cod]

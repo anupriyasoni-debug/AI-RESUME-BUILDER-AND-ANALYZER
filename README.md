@@ -1,7 +1,7 @@
 # AI Resume Analyzer & Builder — Week 1 Submission
 
 ## 📌 Overview
-This project is a Streamlit-based web application that helps users **analyze an existing resume** for ATS (Applicant Tracking System) compatibility and **build a new resume from scratch**, exporting it as a downloadable PDF. It combines rule-based text analysis with an optional AI (OpenAI) layer for smarter improvement suggestions.
+This project is a Streamlit-based web application that helps users **analyze an existing resume** for ATS (Applicant Tracking System) compatibility and **build a new resume from scratch**, exporting it as a downloadable PDF. It combines rule-based text analysis with an optional Gemini layer for AI-assisted text improvement.
 
 **Goal for Week 1:** Build and validate a working end-to-end MVP — upload → analyze → score → suggest, plus a functional resume builder → PDF export.
 
@@ -17,7 +17,12 @@ This project is a Streamlit-based web application that helps users **analyze an 
 | Section detection (contact, summary, education, experience, skills, projects, certifications) | ✅ Done |
 | Missing section warnings | ✅ Done |
 | Rule-based improvement suggestions | ✅ Done |
-| Optional OpenAI-powered suggestions (via `.env`) | ✅ Done |
+| Job description keyword matching | ✅ Done |
+| Role skills and keyword gap analysis | ✅ Done |
+| Bullet impact, grammar-pattern, and ATS formatting checks | ✅ Done |
+| AI Resume Assistant for selected summary, experience, and project bullets | ✅ Done |
+| Optional Groq-powered bullet enhancement in six rewrite modes | ✅ Done |
+| Resume version comparison with Groq AI metrics and report | ✅ Done |
 | Resume Builder form (personal info, education, experience, projects, skills, certifications) | ✅ Done |
 | Generate & download builder output as PDF | ✅ Done |
 | Simple two-page Streamlit UI (Analyzer / Builder) | ✅ Done |
@@ -29,7 +34,8 @@ This project is a Streamlit-based web application that helps users **analyze an 
 - **PDF text extraction:** PyPDF2
 - **DOCX text extraction:** python-docx
 - **PDF generation:** fpdf2
-- **AI suggestions (optional):** OpenAI API (`gpt-4o-mini`)
+- **AI text improvement (optional):** Groq API (uses `GROQ_MODEL`, default `llama-3.3-70b-versatile`)
+- **Resume comparison (optional):** Groq API (`llama-3.3-70b-versatile` by default; override with `GROQ_MODEL`)
 - **Config management:** python-dotenv
 
 ---
@@ -40,9 +46,10 @@ resume_app/
 ├── app.py               # Main Streamlit app (navigation + UI)
 ├── analyzer.py           # Text extraction, skill/section detection, ATS scoring, suggestions
 ├── resume_builder.py     # Resume Builder form UI
+├── resume_comparison.py  # Resume version source selection, Groq scores, and diff report
 ├── pdf_generator.py      # Builds the downloadable resume PDF
 ├── requirements.txt      # Python dependencies
-├── .env.example           # Template for OpenAI API key
+├── .env.example           # Template for Gemini and Groq API configuration
 └── README.md              # This file
 ```
 
@@ -52,6 +59,8 @@ resume_app/
 
 # 1. Install dependencies
 pip install -r requirements.txt
+
+# Configure GROQ_API_KEY in a local .env file for AI bullet improvement and resume comparison.
 
 # 2. Run the app
 streamlit run app.py
@@ -91,9 +100,8 @@ This is intentionally simple and transparent (no black-box scoring) so it's easy
 
 ## ⚠️ Known Limitations (to address in later weeks)
 - Skill detection relies on a fixed keyword list — no fuzzy matching or synonym handling yet
+- JD matching and grammar checks are local heuristics; they do not evaluate semantic fit or replace a full proofreader
 - Scanned/image-based PDFs (no embedded text layer) won't extract text — OCR not implemented
-- No resume-vs-job-description matching yet (planned for a future week)
-- PDF builder layout is single-template only — no style/theme options yet
 - No persistence layer — builder data is not saved between sessions
 
 ---
