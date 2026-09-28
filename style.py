@@ -253,3 +253,72 @@ div:has(> [data-testid="stFileUploader"]) {
 }
 </style>
 """
+
+GRADIENT_CSS = """
+<style>
+@keyframes appGradientDrift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+@keyframes headingGradientShift {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+@keyframes cardGradientDrift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.section-heading,
+.preview-card h4,
+.capability h4 {
+    color: #0f766e;
+    background: linear-gradient(90deg, #0f766e, #2563eb, #db2777, #0f766e);
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: headingGradientShift 8s linear infinite;
+}
+
+.stApp {
+    background: linear-gradient(
+        120deg,
+        #fcfdff,
+        #f1f7ff,
+        #f7f3ff,
+        #fffaf2,
+        #fcfdff
+    ) !important;
+    background-size: 300% 300% !important;
+    animation: appGradientDrift 34s ease-in-out infinite !important;
+}
+
+.preview-card,
+.capability {
+    background-image: linear-gradient(
+        115deg,
+        #ffffff 0%,
+        #f3fbf8 30%,
+        #f4f7ff 60%,
+        #fff8f1 85%,
+        #ffffff 100%
+    ) !important;
+    background-size: 250% 250%;
+    animation: cardGradientDrift 26s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .section-heading,
+    .preview-card h4,
+    .capability h4,
+    .preview-card,
+    .capability,
+    .stApp {
+        animation: none;
+    }
+}
+</style>
+"""

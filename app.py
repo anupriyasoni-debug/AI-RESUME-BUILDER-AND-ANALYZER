@@ -12,9 +12,12 @@ from analyzer import (
 )
 from resume_builder import resume_builder_page
 from resume_comparison import resume_comparison_page
+from style import GRADIENT_CSS
 
 
 st.set_page_config(page_title="Resumer | AI Resume Builder & Analyzer", layout="wide")
+
+st.markdown(GRADIENT_CSS, unsafe_allow_html=True)
 
 st.markdown(
     """
