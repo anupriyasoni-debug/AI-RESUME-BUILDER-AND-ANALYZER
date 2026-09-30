@@ -1,5 +1,138 @@
 from fpdf import FPDF
+import fitz  # PyMuPDF
 import io
+
+
+COLOR_PALETTES = {
+    "Mauve & Plum Velvet": {
+        "primary": "#4A355E",
+        "secondary": "#6D5284",
+        "subheading": "#8D73A8",
+        "border": "#B39CCB",
+        "badge": "#D7B6C7",
+        "tint": "#F7EEF2",
+    },
+    "Classic Black & White": {
+        "primary": "#111827",
+        "secondary": "#4B5563",
+        "subheading": "#374151",
+        "border": "#D1D5DB",
+        "badge": "#E5E7EB",
+        "tint": "#FFFFFF",
+    },
+    "Navy & Cool Gray": {
+        "primary": "#0F172A",
+        "secondary": "#334155",
+        "subheading": "#475569",
+        "border": "#CBD5E1",
+        "badge": "#E2E8F0",
+        "tint": "#F8FAFC",
+    },
+    "Charcoal & Slate": {
+        "primary": "#2B2D42",
+        "secondary": "#4A4E69",
+        "subheading": "#8D99AE",
+        "border": "#C9D1D9",
+        "badge": "#E0E1DD",
+        "tint": "#EDF2F4",
+    },
+    "Emerald & Mint": {
+        "primary": "#064E3B",
+        "secondary": "#047857",
+        "subheading": "#0D9488",
+        "border": "#A7F3D0",
+        "badge": "#D1FAE5",
+        "tint": "#ECFDF5",
+    },
+    "Burgundy & Cream": {
+        "primary": "#581845",
+        "secondary": "#900C3F",
+        "subheading": "#C70039",
+        "border": "#E8D8D8",
+        "badge": "#F5EBE6",
+        "tint": "#FAF3E0",
+    },
+    "Midnight & Royal Blue": {
+        "primary": "#0A192F",
+        "secondary": "#1E3A8A",
+        "subheading": "#2563EB",
+        "border": "#BFDBFE",
+        "badge": "#DBEAFE",
+        "tint": "#F0F9FF",
+    },
+    "Deep Forest Green": {
+        "primary": "#1B4332",
+        "secondary": "#2D6A4F",
+        "subheading": "#40916C",
+        "border": "#B7E4C7",
+        "badge": "#D8F3DC",
+        "tint": "#F4FAF6",
+    },
+    "Teal & Seafoam": {
+        "primary": "#134E4A",
+        "secondary": "#0D9488",
+        "subheading": "#14B8A6",
+        "border": "#99F6E4",
+        "badge": "#CCFBF1",
+        "tint": "#F0FDFA",
+    },
+    "Espresso & Sand": {
+        "primary": "#3E2723",
+        "secondary": "#5D4037",
+        "subheading": "#795548",
+        "border": "#D7CCC8",
+        "badge": "#EFEBE9",
+        "tint": "#F5F2EB",
+    },
+    "Sapphire & Amber": {
+        "primary": "#1E3A8A",
+        "secondary": "#B45309",
+        "subheading": "#D97706",
+        "border": "#FDE68A",
+        "badge": "#FEF3C7",
+        "tint": "#FFFBEB",
+    },
+    "Steel & Ice Gray": {
+        "primary": "#374151",
+        "secondary": "#4B5563",
+        "subheading": "#6B7280",
+        "border": "#D1D5DB",
+        "badge": "#E5E7EB",
+        "tint": "#F3F4F6",
+    },
+    "Crimson & Rose": {
+        "primary": "#881337",
+        "secondary": "#BE123C",
+        "subheading": "#E11D48",
+        "border": "#FECDD3",
+        "badge": "#FFE4E6",
+        "tint": "#FFF1F2",
+    },
+    "Modern Olive & Khaki": {
+        "primary": "#3F4E4F",
+        "secondary": "#2C3639",
+        "subheading": "#A27B5C",
+        "border": "#DCD7C9",
+        "badge": "#EAE5D9",
+        "tint": "#F7F5F0",
+    },
+    "Amethyst & Lilac": {
+        "primary": "#3B185F",
+        "secondary": "#6A1B9A",
+        "subheading": "#9333EA",
+        "border": "#E9D5FF",
+        "badge": "#F3E8FF",
+        "tint": "#FAF5FF",
+    },
+    "Cobalt & Silver": {
+        "primary": "#1D4ED8",
+        "secondary": "#3B82F6",
+        "subheading": "#64748B",
+        "border": "#CBD5E1",
+        "badge": "#E2E8F0",
+        "tint": "#F8FAFC",
+    },
+}
 
 
 def _hex_to_rgb(color):
@@ -8,32 +141,169 @@ def _hex_to_rgb(color):
 
 
 PDF_PALETTES_HEX = {
-    "Navy and White": {
-        "primary": "#11304D", "accent": "#2D6791",
-        "body": "#334155", "muted": "#5B7084", "soft": "#EBF2F8",
+    "Mauve & Plum Velvet": {
+        "primary": "#4A355E",
+        "secondary": "#6D5284",
+        "accent": "#6D5284",
+        "subheadings": "#8D73A8",
+        "border": "#B39CCB",
+        "soft_accent": "#D7B6C7",
+        "light_shade": "#EBCED6",
+        "paper": "#F7EEF2",
+        "body": "#352742",
+        "muted": "#8D73A8",
+        "soft": "#F7EEF2",
     },
-    "Charcoal and Slate": {
-        "primary": "#2B2D31", "accent": "#495563",
-        "body": "#343A40", "muted": "#606B75", "soft": "#F0F2F4",
+    "Classic Black & White": {
+        "primary": "#111827",
+        "accent": "#4B5563",
+        "body": "#1f2937",
+        "muted": "#4B5563",
+        "soft": "#F3F4F6",
+        "paper": "#FFFFFF",
+        "border": "#D1D5DB",
     },
-    "Dark Green and White": {
-        "primary": "#155337", "accent": "#357A55",
-        "body": "#314136", "muted": "#5C7764", "soft": "#EBF4ED",
+    "Navy & Cool Gray": {
+        "primary": "#0F172A",
+        "accent": "#334155",
+        "body": "#1E293B",
+        "muted": "#64748B",
+        "soft": "#F8FAFC",
+        "paper": "#FFFFFF",
+        "border": "#CBD5E1",
     },
-    "Burgundy and Cream": {
-        "primary": "#802637", "accent": "#9E4C50",
-        "body": "#483834", "muted": "#7E645B", "soft": "#F8F1E2",
+    "Charcoal & Slate": {
+        "primary": "#2B2D42",
+        "accent": "#8D99AE",
+        "body": "#2B2D42",
+        "muted": "#8D99AE",
+        "soft": "#EDF2F4",
+        "paper": "#FFFFFF",
+        "border": "#8D99AE",
     },
-    "Classic Black and White": {
-        "primary": "#000000", "accent": "#1F1F1F",
-        "body": "#222222", "muted": "#595959", "soft": "#F2F2F2",
+    "Emerald & Mint": {
+        "primary": "#064E3B",
+        "accent": "#0D9488",
+        "body": "#134E4A",
+        "muted": "#059669",
+        "soft": "#ECFDF5",
+        "paper": "#FFFFFF",
+        "border": "#A7F3D0",
     },
+    "Burgundy & Cream": {
+        "primary": "#581845",
+        "accent": "#900C3F",
+        "body": "#3A1B28",
+        "muted": "#900C3F",
+        "soft": "#FAF3E0",
+        "paper": "#FAF3E0",
+        "border": "#C70039",
+    },
+    "Midnight & Royal Blue": {
+        "primary": "#0A192F",
+        "accent": "#1E3A8A",
+        "body": "#172554",
+        "muted": "#2563EB",
+        "soft": "#F0F9FF",
+        "paper": "#FFFFFF",
+        "border": "#93C5FD",
+    },
+    "Deep Forest Green": {
+        "primary": "#1B4332",
+        "accent": "#2D6A4F",
+        "body": "#1F382B",
+        "muted": "#40916C",
+        "soft": "#D8F3DC",
+        "paper": "#FFFFFF",
+        "border": "#74C69D",
+    },
+    "Teal & Seafoam": {
+        "primary": "#134E4A",
+        "accent": "#14B8A6",
+        "body": "#134E4A",
+        "muted": "#0F766E",
+        "soft": "#F0FDFA",
+        "paper": "#FFFFFF",
+        "border": "#99F6E4",
+    },
+    "Espresso & Sand": {
+        "primary": "#3E2723",
+        "accent": "#795548",
+        "body": "#2E211E",
+        "muted": "#6D4C41",
+        "soft": "#F5F2EB",
+        "paper": "#FAF8F5",
+        "border": "#D7CCC8",
+    },
+    "Sapphire & Amber": {
+        "primary": "#1E3A8A",
+        "accent": "#D97706",
+        "body": "#1E293B",
+        "muted": "#3B82F6",
+        "soft": "#FFFBEB",
+        "paper": "#FFFFFF",
+        "border": "#FDE68A",
+    },
+    "Steel & Ice Gray": {
+        "primary": "#374151",
+        "accent": "#6B7280",
+        "body": "#1F2937",
+        "muted": "#6B7280",
+        "soft": "#F3F4F6",
+        "paper": "#FFFFFF",
+        "border": "#E5E7EB",
+    },
+    "Crimson & Rose": {
+        "primary": "#881337",
+        "accent": "#E11D48",
+        "body": "#4C0519",
+        "muted": "#9F1239",
+        "soft": "#FFF1F2",
+        "paper": "#FFFFFF",
+        "border": "#FECDD3",
+    },
+    "Modern Olive & Khaki": {
+        "primary": "#3F4E4F",
+        "accent": "#A27B5C",
+        "body": "#2C3531",
+        "muted": "#5C6B65",
+        "soft": "#DCD7C9",
+        "paper": "#F8F7F4",
+        "border": "#DCD7C9",
+    },
+    "Amethyst & Lilac": {
+        "primary": "#3B185F",
+        "accent": "#9333EA",
+        "body": "#2E1065",
+        "muted": "#7E22CE",
+        "soft": "#FAF5FF",
+        "paper": "#FFFFFF",
+        "border": "#E9D5FF",
+    },
+    "Cobalt & Silver": {
+        "primary": "#1D4ED8",
+        "accent": "#64748B",
+        "body": "#1E293B",
+        "muted": "#3B82F6",
+        "soft": "#F8FAFC",
+        "paper": "#FFFFFF",
+        "border": "#CBD5E1",
+    },
+}
+
+PALETTE_ALIASES = {
+    "Navy and White": "Navy & Cool Gray",
+    "Classic Black and White": "Classic Black & White",
+    "Dark Green and White": "Deep Forest Green",
+    "Mauve and Plum Velvet": "Mauve & Plum Velvet",
 }
 
 
 def get_pdf_palette(color_scheme):
-    hex_palette = PDF_PALETTES_HEX.get(color_scheme, PDF_PALETTES_HEX["Classic Black and White"])
+    resolved = PALETTE_ALIASES.get(color_scheme, color_scheme)
+    hex_palette = PDF_PALETTES_HEX.get(resolved, PDF_PALETTES_HEX["Classic Black & White"])
     return {name: _hex_to_rgb(color) for name, color in hex_palette.items()}
+
 
 
 class CleanResume(FPDF):
@@ -335,3 +605,17 @@ def generate_resume_pdf(
     )
     flat_data["certifications"] = "\n".join(data.get("certifications", []))
     return build_pdf(flat_data, template=template, color_scheme=color_scheme).getvalue()
+
+
+def render_pdf_to_thumbnail(pdf_bytes: bytes, dpi: int = 120) -> bytes:
+    """Convert the first page of a generated PDF into a PNG thumbnail."""
+    if not pdf_bytes:
+        return b""
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        if len(doc) == 0:
+            return b""
+        return doc[0].get_pixmap(dpi=dpi).tobytes("png")
+    finally:
+        doc.close()

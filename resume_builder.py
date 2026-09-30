@@ -10,16 +10,53 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
-from pdf_generator import generate_resume_pdf, get_pdf_palette
+from pdf_generator import (
+    COLOR_PALETTES,
+    generate_resume_pdf,
+    get_pdf_palette,
+    render_pdf_to_thumbnail,
+    PDF_PALETTES_HEX,
+)
 from gemini_client import create_gemini_model
 
 
 TEMPLATE_OPTIONS = [
-    "Professional Layout", "Modern Layout", "Clean Layout", "Executive Layout",
-    "Tech / Developer Layout", "Minimalist Layout", "Two-Column Sidebar Layout",
-    "Creative / Bold Header Layout", "Compact / Single-Page Layout", "Elegant / Corporate Layout",
+    "Two-Column Sidebar Layout",
+    "Compact / Single-Page Layout",
+    "Creative / Bold Header Layout",
+    "Elegant / Corporate Layout",
+    "Professional Layout",
+    "Modern Layout",
+    "Clean Layout",
+    "Executive Layout",
+    "Tech / Developer Layout",
+    "Minimalist Layout",
 ]
 TEMPLATE_PREVIEWS = [
+    {
+        "name": "Two-Column Sidebar Layout",
+        "style": "Distinct contact and skills sidebar paired with a focused main experience column.",
+        "structure": "Sidebar: contact and skills. Main: summary, experience, projects, education, certifications.",
+        "best_for": "Candidates with strong technical breadth and a concise work history.",
+    },
+    {
+        "name": "Compact / Single-Page Layout",
+        "style": "Tight leading and compact section rhythm designed to keep a complete resume on one page.",
+        "structure": "Summary, experience, projects, education, skills, certifications.",
+        "best_for": "Early-career candidates and application portals with strict page limits.",
+    },
+    {
+        "name": "Creative / Bold Header Layout",
+        "style": "High-contrast colored top banner with inverted identity text and crisp sections.",
+        "structure": "Summary, skills, experience, projects, education, certifications.",
+        "best_for": "Creative technology, marketing, design, and portfolio-led applications.",
+    },
+    {
+        "name": "Elegant / Corporate Layout",
+        "style": "Refined alignment, subtle divider lines, and understated corporate polish.",
+        "structure": "Summary, experience, education, projects, skills, certifications.",
+        "best_for": "Corporate, operations, HR, healthcare, and client-facing professionals.",
+    },
     {
         "name": "Professional Layout",
         "style": "Centered name with balanced spacing and clear section dividers.",
@@ -56,38 +93,27 @@ TEMPLATE_PREVIEWS = [
         "structure": "Summary, experience, projects, education, skills, certifications.",
         "best_for": "Design-conscious professionals and modern ATS submissions.",
     },
-    {
-        "name": "Two-Column Sidebar Layout",
-        "style": "Distinct contact and skills sidebar paired with a focused main experience column.",
-        "structure": "Sidebar: contact and skills. Main: summary, experience, projects, education, certifications.",
-        "best_for": "Candidates with strong technical breadth and a concise work history.",
-    },
-    {
-        "name": "Creative / Bold Header Layout",
-        "style": "High-contrast colored top banner with inverted identity text and crisp sections.",
-        "structure": "Summary, skills, experience, projects, education, certifications.",
-        "best_for": "Creative technology, marketing, design, and portfolio-led applications.",
-    },
-    {
-        "name": "Compact / Single-Page Layout",
-        "style": "Tight leading and compact section rhythm designed to keep a complete resume on one page.",
-        "structure": "Summary, experience, projects, education, skills, certifications.",
-        "best_for": "Early-career candidates and application portals with strict page limits.",
-    },
-    {
-        "name": "Elegant / Corporate Layout",
-        "style": "Refined alignment, subtle divider lines, and understated corporate polish.",
-        "structure": "Summary, experience, education, projects, skills, certifications.",
-        "best_for": "Corporate, operations, HR, healthcare, and client-facing professionals.",
-    },
 ]
-COLOR_OPTIONS = [
-    "Navy and White",
-    "Charcoal and Slate",
-    "Dark Green and White",
-    "Burgundy and Cream",
-    "Classic Black and White",
-]
+COLOR_OPTIONS = list(COLOR_PALETTES)
+COLOR_PALETTE_SWATCHES = {
+    "Mauve & Plum Velvet": ("#4A355E", "#6D5284", "#B39CCB", "#F7EEF2"),
+    "Classic Black & White": ("#111827", "#4B5563", "#9CA3AF", "#FFFFFF"),
+    "Navy & Cool Gray": ("#0F172A", "#334155", "#64748B", "#F8FAFC"),
+    "Charcoal & Slate": ("#2B2D42", "#8D99AE", "#CBD5E1", "#EDF2F4"),
+    "Emerald & Mint": ("#064E3B", "#0D9488", "#34D399", "#ECFDF5"),
+    "Burgundy & Cream": ("#581845", "#900C3F", "#C70039", "#FAF3E0"),
+    "Midnight & Royal Blue": ("#0A192F", "#1E3A8A", "#60A5FA", "#F0F9FF"),
+    "Deep Forest Green": ("#1B4332", "#2D6A4F", "#52B788", "#D8F3DC"),
+    "Teal & Seafoam": ("#134E4A", "#14B8A6", "#5EEAD4", "#F0FDFA"),
+    "Espresso & Sand": ("#3E2723", "#795548", "#A1887F", "#F5F2EB"),
+    "Sapphire & Amber": ("#1E3A8A", "#D97706", "#FBBF24", "#FFFBEB"),
+    "Steel & Ice Gray": ("#374151", "#6B7280", "#9CA3AF", "#F3F4F6"),
+    "Crimson & Rose": ("#881337", "#E11D48", "#FB7185", "#FFF1F2"),
+    "Modern Olive & Khaki": ("#3F4E4F", "#A27B5C", "#A3B899", "#DCD7C9"),
+    "Amethyst & Lilac": ("#3B185F", "#9333EA", "#C084FC", "#FAF5FF"),
+    "Cobalt & Silver": ("#1D4ED8", "#64748B", "#94A3B8", "#F8FAFC"),
+}
+
 TEMPLATE_SECTIONS = {
     "Professional Layout": ("SUMMARY", "EXPERIENCE", "PROJECTS", "EDUCATION", "SKILLS", "CERTIFICATIONS"),
     "Modern Layout": ("SUMMARY", "SKILLS", "EXPERIENCE", "PROJECTS", "EDUCATION", "CERTIFICATIONS"),
@@ -302,6 +328,85 @@ def _build_template_html_preview(template, color_scheme):
     return TEMPLATE_HTML_RENDERERS[template](get_pdf_palette(color_scheme))
 
 
+def _prepare_preview_data(data: dict) -> dict:
+    if not isinstance(data, dict):
+        data = {}
+    sample_name = data.get("name") or "Alex Morgan"
+    sample_email = data.get("email") or "alex.morgan@example.com"
+    sample_phone = data.get("phone") or "+1 (555) 234-5678"
+    sample_linkedin = data.get("linkedin") or "linkedin.com/in/alexmorgan"
+    sample_github = data.get("github") or "github.com/alexmorgan"
+    sample_location = data.get("location") or "San Francisco, CA"
+    sample_summary = (
+        data.get("summary")
+        or "Accomplished software engineer with 5+ years of experience architecting distributed cloud systems, high-performance web applications, and resilient data pipelines."
+    )
+    sample_skills = data.get("skills") if data.get("skills") else [
+        "Python", "FastAPI", "React", "Docker", "AWS", "PostgreSQL", "System Architecture"
+    ]
+    sample_certifications = data.get("certifications") if data.get("certifications") else [
+        "AWS Certified Solutions Architect", "Certified Kubernetes Administrator (CKA)"
+    ]
+    sample_experience = data.get("experience") if (data.get("experience") and any(any(item.values()) for item in data.get("experience"))) else [
+        {
+            "role": "Senior Software Engineer",
+            "company": "Tech Innovators Inc.",
+            "duration": "2021 - Present",
+            "description": "Led team of 7 engineers developing microservices platform. Reduced latency by 35% and scaled system to 5M daily transactions.",
+        },
+        {
+            "role": "Software Developer",
+            "company": "Apex Cloud Systems",
+            "duration": "2019 - 2021",
+            "description": "Engineered CI/CD automated deployment pipelines and built REST APIs with 99.98% uptime SLA.",
+        },
+    ]
+    sample_education = data.get("education") if (data.get("education") and any(any(item.values()) for item in data.get("education"))) else [
+        {
+            "degree": "B.S. in Computer Science",
+            "institute": "University of California, Berkeley",
+            "year": "2015 - 2019",
+            "score": "3.85 GPA",
+        }
+    ]
+    sample_projects = data.get("projects") if (data.get("projects") and any(any(item.values()) for item in data.get("projects"))) else [
+        {
+            "title": "Distributed In-Memory Cache",
+            "tech": "Python, Redis, gRPC",
+            "description": "Designed a fault-tolerant caching tier with dynamic partition rebalancing and sub-millisecond lookups.",
+        }
+    ]
+    return {
+        "name": sample_name,
+        "email": sample_email,
+        "phone": sample_phone,
+        "linkedin": sample_linkedin,
+        "github": sample_github,
+        "location": sample_location,
+        "summary": sample_summary,
+        "skills": sample_skills,
+        "experience": sample_experience,
+        "education": sample_education,
+        "projects": sample_projects,
+        "certifications": sample_certifications,
+    }
+
+
+@st.cache_data(show_spinner=False)
+def get_cached_thumbnail(resume_data_json: str, template: str, color_scheme: str) -> bytes:
+    try:
+        data = json.loads(resume_data_json) if isinstance(resume_data_json, str) else (resume_data_json or {})
+    except Exception:
+        data = {}
+    display_data = _prepare_preview_data(data)
+    pdf_bytes = generate_resume_pdf(display_data, template=template, color_scheme=color_scheme)
+    return render_pdf_to_thumbnail(pdf_bytes, dpi=115)
+
+
+generate_cached_thumbnail = get_cached_thumbnail
+
+
+
 def _gemini_error_message(exc, feature):
     error_text = str(exc).lower()
     status_code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
@@ -505,8 +610,11 @@ def resume_builder_page():
     state.setdefault("step", 1)
     state.setdefault("resume_data", {})
     state.setdefault("resume_template", TEMPLATE_OPTIONS[0])
-    state.setdefault("resume_color_scheme", COLOR_OPTIONS[-1])
+    state.setdefault("selected_template", TEMPLATE_OPTIONS[0])
+    state.setdefault("resume_color_scheme", COLOR_OPTIONS[0])
+    state.setdefault("selected_color_scheme", COLOR_OPTIONS[0])
     state.setdefault("resume_pdf", None)
+
 
     if state.step == 1:
         _set_form_widget_state(state.resume_data)
@@ -620,105 +728,172 @@ def resume_builder_page():
         return data
 
     if state.step == 2:
-        state.setdefault("_resume_template_widget", state.resume_template)
+        top_c1, top_c2 = st.columns([1, 4])
+        with top_c1:
+            if st.button("← Back to Form"):
+                _set_form_widget_state(state.resume_data, overwrite=True)
+                state.step = 1
+                st.rerun()
+
         st.subheader("Choose Template & Style")
-        if st.button("Back to Form"):
-            state.resume_template = state.get("_resume_template_widget", state.resume_template)
-            state.resume_color_scheme = state.get("_resume_color_widget", state.resume_color_scheme)
-            _set_form_widget_state(state.resume_data, overwrite=True)
-            state.step = 1
+        st.markdown(
+            "Compare all template options dynamically populated with your actual resume content. "
+            "Changing the color scheme below instantly re-renders all live previews."
+        )
+
+        active_color = state.get("selected_color_scheme") or state.get("resume_color_scheme") or COLOR_OPTIONS[0]
+        if active_color not in COLOR_OPTIONS:
+            active_color = COLOR_OPTIONS[0]
+        color_index = COLOR_OPTIONS.index(active_color)
+
+        st.markdown("#### 🎨 Color Scheme Palette")
+        selected_color = st.selectbox(
+            "Select Palette (instantly applies to all templates below):",
+            COLOR_OPTIONS,
+            index=color_index,
+            key="_resume_color_picker",
+        )
+        if selected_color != active_color:
+            state.resume_color_scheme = selected_color
+            state.selected_color_scheme = selected_color
+            active_color = selected_color
             st.rerun()
 
-        color_index = COLOR_OPTIONS.index(state.resume_color_scheme)
+        # Visual swatch bar
+        palette = COLOR_PALETTES[active_color]
+        swatches = (
+            palette["primary"],
+            palette["secondary"],
+            palette["border"],
+            palette["tint"],
+        )
+        st.markdown(
+            f"""
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin-bottom:1.5rem; padding:10px 16px; background:#ffffff; border-radius:8px; border:1px solid #dbe3ee;">
+                <span style="font-weight:600; font-size:0.88rem; color:#1e293b;">Active Theme: <strong>{active_color}</strong></span>
+                <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:18px; height:18px; border-radius:50%; background:{swatches[0]}; border:1px solid rgba(0,0,0,0.15);"></span>
+                    <small style="color:#64748b; font-family:monospace;">Primary {swatches[0]}</small>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:18px; height:18px; border-radius:50%; background:{swatches[1]}; border:1px solid rgba(0,0,0,0.15);"></span>
+                    <small style="color:#64748b; font-family:monospace;">Accent {swatches[1]}</small>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:18px; height:18px; border-radius:50%; background:{swatches[2]}; border:1px solid rgba(0,0,0,0.15);"></span>
+                    <small style="color:#64748b; font-family:monospace;">Border {swatches[2]}</small>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:18px; height:18px; border-radius:50%; background:{swatches[3]}; border:1px solid #cbd5e1;"></span>
+                    <small style="color:#64748b; font-family:monospace;">Paper/Tint {swatches[3]}</small>
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        current_template = state.get("selected_template") or state.get("resume_template") or TEMPLATE_OPTIONS[0]
+        if current_template not in TEMPLATE_OPTIONS:
+            current_template = TEMPLATE_OPTIONS[0]
+
+        resume_payload_json = json.dumps(state.resume_data or {}, sort_keys=True)
+
         st.markdown(
             """
             <style>
-            .template-preview {
-                min-height: 210px;
-                padding: 1rem;
-                border: 1px solid #dbe3ee;
-                border-top: 4px solid #9aa8b8;
-                border-radius: 6px;
-                background: rgba(255, 255, 255, 0.88);
-                color: #263342;
+            .resume-thumbnail-card {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                box-shadow: 0 10px 25px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.05);
+                background: #ffffff;
+                overflow: hidden;
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
             }
-            .template-preview.is-selected {
-                border-color: #315c75;
-                border-top-color: #315c75;
-                background: #f1f7fa;
+            .resume-thumbnail-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14), 0 3px 8px rgba(15, 23, 42, 0.08);
             }
-            .template-preview h4 {
-                margin: 0 0 .65rem;
-                color: #172b3a;
-                font-size: 1rem;
+            .template-metadata-box {
+                padding: 0.5rem 0.25rem;
             }
-            .template-preview p {
-                margin: .35rem 0;
-                font-size: .82rem;
-                line-height: 1.45;
+            .active-badge-pill {
+                display: inline-block;
+                padding: 4px 12px;
+                background: #4A355E;
+                color: #ffffff;
+                border-radius: 9999px;
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                margin-bottom: 0.5rem;
             }
-            .template-preview strong { color: #172b3a; }
-            .html-resume-preview { min-height: 360px; padding: .7rem; border: 1px solid #d4dae0; background: #eef1f4; }
-            .html-resume { min-height: 330px; padding: .8rem; overflow: hidden; background: #fff; color: #273444; }
-            .html-resume h3, .html-resume h5, .html-resume p { margin: 0; }
-            .html-resume h3 { font-size: .82rem; letter-spacing: .05em; }
-            .html-resume p, .html-resume code { font-size: .48rem; line-height: 1.5; }
-            .html-resume-section { margin-top: .7rem; }
-            .html-resume-section h5 { font-size: .48rem; letter-spacing: .1em; }
-            .html-resume-section i { display: block; width: 92%; height: 3px; margin-top: .25rem; background: #dce3ea; }
-            .html-resume-section i:nth-of-type(2) { width: 78%; }.html-resume-section i.short { width: 56%; }
-            .html-resume-rule { display: block; height: 2px; margin: .2rem 0 .25rem; background: #55758b; }
-            .professional-html { padding: 1.1rem; text-align: center; }.professional-html header { padding-bottom: .6rem; border-bottom: 2px solid #55758b; }
-            .professional-html .html-resume-section { text-align: left; }
-            .modern-html { padding: 0; }.modern-html header { display: flex; justify-content: space-between; padding: 1rem; color: #fff; background: #183b56; }.modern-html header b { padding: .3rem .45rem; background: #2f718e; text-align: center; }.modern-html main { padding: .2rem .9rem; }.modern-html .html-resume-rule { height: 6px; background: #e2edf2; border-left: 3px solid #2f718e; }
-            .clean-html { padding: 1.2rem; }.clean-html header { padding-bottom: .75rem; border-bottom: 1px solid #cbd5df; }.clean-html .html-resume-rule { width: 24%; height: 1px; background: #55758b; }.clean-html .html-resume-section { margin-top: .8rem; }
-            .executive-html { font-family: Georgia, serif; padding: .7rem; border: 5px double #8b6f47; }.executive-html header { padding: .6rem; border-bottom: 1px solid #8b6f47; text-align: center; }.executive-html header span { font-size: .42rem; letter-spacing: .18em; }.executive-html .executive-border { padding: .15rem .45rem; border-left: 1px solid #8b6f47; border-right: 1px solid #8b6f47; }.executive-html .html-resume-rule { background: #8b6f47; }
-            .tech-html { font-family: Consolas, monospace; padding: .65rem; background: #17212b; color: #d8f3dc; }.tech-html header { padding-bottom: .6rem; border-bottom: 1px dashed #63c174; }.tech-html h3 { color: #8be28b; }.tech-html .tech-grid { display: grid; grid-template-columns: 31% 1fr; gap: .7rem; }.tech-html aside { padding-top: .75rem; border-right: 1px solid #385446; }.tech-html aside h5 { color: #63c174; }.tech-html main { padding-top: .05rem; }.tech-html .html-resume-section h5 { color: #8be28b; }.tech-html .html-resume-rule { background: #63c174; }.tech-html .html-resume-section i { background: #385446; }
-            .minimalist-html { padding: 1.3rem; font-family: Georgia, serif; }.minimalist-html header { padding-bottom: 1.1rem; border-bottom: 1px solid #d9dde1; }.minimalist-html header h3 { font-size: 1rem; font-weight: 400; letter-spacing: .01em; }.minimalist-html .minimalist-body { padding-top: .3rem; }.minimalist-html .html-resume-section { margin-top: 1.05rem; }.minimalist-html .html-resume-rule { height: 1px; background: #b8c0c7; }
-            .sidebar-html { display: grid; grid-template-columns: 34% 1fr; padding: 0; }.sidebar-html aside { padding: 1rem .6rem; color: #fff; background: #274c5e; }.sidebar-html aside h3 { font-size: .8rem; line-height: 1.3; }.sidebar-html aside h5 { margin-top: 1.1rem; color: #b9d6d9; font-size: .45rem; letter-spacing: .13em; }.sidebar-html aside p { margin-top: .3rem; color: #edf7f5; }.sidebar-html main { padding: .8rem; }.sidebar-html .html-resume-rule { width: 28%; height: 2px; background: #4d8b8c; }
-            .creative-html { padding: 0; }.creative-html header { padding: 1rem; color: #fff; background: #bb3e03; }.creative-html header h3 { margin-top: .35rem; font-size: 1.15rem; line-height: 1.05; }.creative-html header p { margin-top: .6rem; color: #ffe8d6; }.creative-html .creative-body { padding: .2rem 1rem; }.creative-html .html-resume-rule { height: 4px; background: #ee9b00; }
-            .compact-html { padding: .65rem; }.compact-html header { padding-bottom: .45rem; border-bottom: 2px solid #334e68; }.compact-html .compact-columns { display: grid; grid-template-columns: 1.5fr 1fr; gap: .75rem; }.compact-html .html-resume-section { margin-top: .5rem; }.compact-html .html-resume-rule { height: 1px; background: #334e68; }.compact-html .html-resume-section i { height: 2px; }
-            .corporate-html { padding: .8rem 1rem; }.corporate-html header { display: flex; justify-content: space-between; padding-bottom: .65rem; border-bottom: 1px solid #9aa8b8; }.corporate-html header p { text-align: right; }.corporate-html .corporate-body { padding-top: .15rem; }.corporate-html .html-resume-section { display: grid; grid-template-columns: 28% 1fr; column-gap: .5rem; }.corporate-html .html-resume-section h5 { padding-top: .15rem; color: #315c75; }.corporate-html .html-resume-rule { grid-column: 2; margin-top: 0; background: #9aa8b8; }.corporate-html .html-resume-section i { grid-column: 2; }
             </style>
             """,
             unsafe_allow_html=True,
         )
-        for row_start in range(0, len(TEMPLATE_PREVIEWS), 3):
-            template_columns = st.columns(3)
-            for column, preview in zip(template_columns, TEMPLATE_PREVIEWS[row_start:row_start + 3]):
-                with column:
-                    selected = state._resume_template_widget == preview["name"]
-                    card_class = "template-preview is-selected" if selected else "template-preview"
-                    st.markdown(
-                        f"<div class='html-resume-preview'>{_build_template_html_preview(preview['name'], state.resume_color_scheme)}</div>",
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(
-                        f"""
-                        <article class="{card_class}">
-                            <h4>{preview['name']}</h4>
-                            <p>{preview['style']}</p>
-                            <p><strong>Structure:</strong> {preview['structure']}</p>
-                            <p><strong>Best for:</strong> {preview['best_for']}</p>
-                        </article>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    if st.button(
-                        "Selected" if selected else "Select layout",
-                        key=f"select_template_{row_start}_{preview['name'].split()[0].lower()}",
-                        type="primary" if selected else "secondary",
-                        use_container_width=True,
-                    ):
-                        state._resume_template_widget = preview["name"]
-                        state.resume_template = preview["name"]
-                        st.rerun()
 
-        st.selectbox("Color Options", COLOR_OPTIONS, index=color_index, key="_resume_color_widget")
+        st.markdown("### 📋 Template Layouts (Linear Comparison)")
+        st.caption("Each row below dynamically renders your actual resume content in the active colorway. Click **'Select This Template'** to choose a layout.")
 
-        if st.button("Create Resume PDF", type="primary"):
-            state.resume_template = state._resume_template_widget
-            state.resume_color_scheme = state._resume_color_widget
+        for index, preview in enumerate(TEMPLATE_PREVIEWS):
+            t_name = preview["name"]
+            is_active = (t_name == current_template)
+            slug = t_name.lower().replace(" ", "_").replace("/", "").replace("-", "_")
+
+            with st.container(border=True):
+                col_preview, col_details = st.columns([1, 1.2], gap="large")
+
+                with col_preview:
+                    with st.spinner(f"Rendering {t_name}..."):
+                        try:
+                            thumbnail_bytes = get_cached_thumbnail(
+                                resume_payload_json,
+                                t_name,
+                                active_color,
+                            )
+                            st.markdown("<div class='resume-thumbnail-card'>", unsafe_allow_html=True)
+                            st.image(thumbnail_bytes, width="stretch")
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        except Exception as err:
+                            st.error(f"Error generating thumbnail: {err}")
+
+                with col_details:
+                    st.markdown("<div class='template-metadata-box'>", unsafe_allow_html=True)
+                    if is_active:
+                        st.markdown(
+                            f"<div class='active-badge-pill' style='background:{swatches[0]};'>✓ ACTIVE SELECTION</div>",
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown(f"### {t_name}")
+                    st.markdown(f"*{preview['style']}*")
+                    st.markdown(f"**Structure:** {preview['structure']}")
+                    st.markdown(f"**Best for:** {preview['best_for']}")
+
+                    st.write("")
+                    if is_active:
+                        st.button(
+                            "✓ Active Selection",
+                            key=f"active_choice_{index}_{slug}",
+                            disabled=True,
+                            type="primary",
+                            width="stretch",
+                        )
+                    else:
+                        if st.button(
+                            "Select This Template",
+                            key=f"select_choice_{index}_{slug}",
+                            type="primary",
+                            width="stretch",
+                        ):
+                            state["selected_template"] = t_name
+                            state.resume_template = t_name
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+        st.divider()
+        if st.button("Create Resume PDF with Selected Template →", type="primary", width="stretch"):
+            state.resume_template = state.get("selected_template", current_template)
+            state.resume_color_scheme = active_color
             state.resume_pdf = None
             state.step = 3
             st.rerun()
@@ -748,21 +923,30 @@ def resume_builder_page():
         notice = state.pop("resume_version_notice", None)
         if notice:
             st.success(notice)
-        if st.button("Start Over"):
-            state.resume_data = {}
-            state.resume_template = TEMPLATE_OPTIONS[0]
-            state.resume_color_scheme = COLOR_OPTIONS[-1]
-            state.resume_pdf = None
-            state.step = 1
-            state.pop("resume_download_name", None)
-            state.pop("_resume_template_widget", None)
-            state.pop("_resume_color_widget", None)
-            _set_form_widget_state({}, overwrite=True)
-            st.rerun()
+
+        col_nav1, col_nav2 = st.columns([1, 1])
+        with col_nav1:
+            if st.button("← Change Template or Colors"):
+                state.step = 2
+                st.rerun()
+        with col_nav2:
+            if st.button("Start Over"):
+                state.resume_data = {}
+                state.resume_template = TEMPLATE_OPTIONS[0]
+                state.selected_template = TEMPLATE_OPTIONS[0]
+                state.resume_color_scheme = COLOR_OPTIONS[0]
+                state.selected_color_scheme = COLOR_OPTIONS[0]
+                state.resume_pdf = None
+                state.step = 1
+                state.pop("resume_download_name", None)
+                state.pop("_resume_color_picker", None)
+                _set_form_widget_state({}, overwrite=True)
+                st.rerun()
         return state.resume_data
 
     state.step = 1
     st.rerun()
+
 
 
 def _set_form_widget_state(data, overwrite=False):
