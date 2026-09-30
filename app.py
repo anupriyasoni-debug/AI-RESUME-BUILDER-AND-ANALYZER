@@ -3,10 +3,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
+import hashlib
 
 from analyzer import (
     JOB_TAXONOMY,
     analyze_resume,
+    analyze_job_description_with_gemini,
     extract_text,
     generate_suggestions,
 )
@@ -235,6 +237,38 @@ elif page == "Upload & Dual Analyzer":
                         st.markdown("**JD Terms to Address**")
                         st.write(", ".join(jd_results["missing_terms"]) or "All extracted terms were found.")
                     st.caption("Keyword matching is a local text comparison; it does not assess context or seniority.")
+                    st.caption("Gemini receives the resume and job description only when you request an AI review.")
+                    jd_fingerprint = hashlib.sha256(
+                        f"{raw_text}\0{job_description}".encode("utf-8")
+                    ).hexdigest()
+                    if st.button("Analyze job fit with Gemini", key="analyze_jd_with_gemini"):
+                        try:
+                            with st.spinner("Reviewing resume evidence against the job description..."):
+                                ai_jd_results = analyze_job_description_with_gemini(raw_text, job_description)
+                            st.session_state["gemini_jd_analysis"] = (jd_fingerprint, ai_jd_results)
+                            st.session_state.pop("gemini_jd_analysis_error", None)
+                        except Exception as exc:
+                            st.session_state["gemini_jd_analysis_error"] = (jd_fingerprint, str(exc))
+
+                    stored_ai_jd = st.session_state.get("gemini_jd_analysis")
+                    if stored_ai_jd and stored_ai_jd[0] == jd_fingerprint:
+                        ai_jd_results = stored_ai_jd[1]
+                        st.metric("Gemini semantic job match", f"{ai_jd_results['score']}%")
+                        st.caption(f"Reviewed with {ai_jd_results['model']}")
+                        ai_matched, ai_missing = st.columns(2)
+                        with ai_matched:
+                            st.markdown("**AI-matched evidence**")
+                            st.write(", ".join(ai_jd_results["matched_terms"]) or "No direct evidence identified.")
+                        with ai_missing:
+                            st.markdown("**AI-identified gaps**")
+                            st.write(", ".join(ai_jd_results["missing_terms"]) or "No major gaps identified.")
+                        st.markdown("**AI Feedback**")
+                        for suggestion in ai_jd_results["feedback"]:
+                            st.markdown(f"- {suggestion}")
+
+                    ai_jd_error = st.session_state.get("gemini_jd_analysis_error")
+                    if ai_jd_error and ai_jd_error[0] == jd_fingerprint:
+                        st.warning(f"Gemini job-fit analysis failed: {ai_jd_error[1]}")
                 else:
                     st.info("Paste a job description above to see its matched and missing terms.")
 

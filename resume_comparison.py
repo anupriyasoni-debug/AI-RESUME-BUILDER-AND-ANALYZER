@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
-from groq import Groq
 
 from analyzer import JOB_TAXONOMY, extract_text
 from resume_builder import _list_resume_versions
+from gemini_client import create_gemini_model
 
 
 SECTION_HEADINGS = {
@@ -148,56 +148,45 @@ def _render_resume_source(slot, saved_versions):
     return version["name"], _saved_resume_to_text(version["data"])
 
 
-def _compare_with_groq(text_a, text_b, target_role):
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key or api_key == "your_groq_api_key_here":
-        raise ValueError("Groq is not configured. Add GROQ_API_KEY to your local .env file.")
-
-    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-    client = Groq(api_key=api_key)
-    response = client.chat.completions.create(
-        model=model_name,
-        temperature=0.2,
-        max_tokens=1800,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are an expert resume reviewer. Compare the two resume texts for the target role. "
-                    "Score each resume independently from 0 to 100 for ATS, skills match, project quality, "
-                    "and format/structure, using job-relevant evidence. Be consistent and factual; do not "
-                    "invent details. Return only a JSON object with exactly these keys: "
-                    "resume_a (object with ats_score, skills_match, projects_quality, format_structure), "
-                    "resume_b (same fields), report (detailed natural-language comparison), and "
-                    "highlights (array of concise, evidence-based differences)."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Target Job Domain: {target_role}\n\n"
-                    f"Resume A:\n{text_a}\n\nResume B:\n{text_b}"
-                ),
-            },
-        ],
+def _compare_with_gemini(text_a, text_b, target_role, job_description=""):
+    model_name, model = create_gemini_model()
+    response = model.generate_content(
+        "You are an expert resume reviewer. Compare both resumes for the target role and, when "
+        "provided, the target job description. Score each resume independently from 0 to 100 for "
+        "ats_score, skills_match, projects_quality, format_structure, and job_match_score. Give each "
+        "resume 3-5 concise feedback recommendations. Use only evidence present in the resume and "
+        "job description; do not invent qualifications or achievements. Return a JSON object with "
+        "resume_a and resume_b (each containing all five numeric scores and a feedback array), report "
+        "(detailed natural-language comparison), and highlights (array of concise, evidence-based differences).\n\n"
+        f"Target Job Domain: {target_role}\n"
+        f"Target Job Description: {job_description.strip() or 'Not provided; use the target job domain.'}\n\n"
+        f"Resume A:\n{text_a}\n\nResume B:\n{text_b}",
+        generation_config={
+            "temperature": 0.2,
+            "max_output_tokens": 2600,
+            "response_mime_type": "application/json",
+        },
     )
-    content = response.choices[0].message.content
+    content = (response.text or "").strip()
     if not content:
-        raise ValueError("Groq returned an empty comparison response.")
+        raise ValueError("Gemini returned an empty comparison response.")
     result = json.loads(content)
 
-    metric_fields = ("ats_score", "skills_match", "projects_quality", "format_structure")
+    metric_fields = ("ats_score", "skills_match", "projects_quality", "format_structure", "job_match_score")
     for version in ("resume_a", "resume_b"):
         if not isinstance(result.get(version), dict):
-            raise ValueError("Groq returned an invalid metrics response.")
+            raise ValueError("Gemini returned an invalid metrics response.")
         for field in metric_fields:
             score = result[version].get(field)
             if isinstance(score, bool) or not isinstance(score, (int, float)):
-                raise ValueError("Groq returned a non-numeric metric score.")
+                raise ValueError("Gemini returned a non-numeric metric score.")
             result[version][field] = max(0, min(100, round(score)))
+        feedback = result[version].get("feedback")
+        if not isinstance(feedback, list):
+            raise ValueError("Gemini returned invalid resume feedback.")
+        result[version]["feedback"] = [str(item).strip() for item in feedback if str(item).strip()]
     if not isinstance(result.get("report"), str) or not result["report"].strip():
-        raise ValueError("Groq returned no comparison report.")
+        raise ValueError("Gemini returned no comparison report.")
     result["highlights"] = [
         str(item) for item in result.get("highlights", []) if str(item).strip()
     ]
@@ -215,9 +204,15 @@ def _render_change_column(title, items, marker):
 
 def resume_comparison_page():
     st.header("Resume Comparison")
-    st.caption("Choose two uploaded resumes or saved builder versions. Groq receives both texts to generate job-specific scores and a comparison report.")
+    st.caption("Choose two uploaded resumes or saved builder versions. Gemini compares them against the target role and optional job description when requested.")
 
     target_role = st.selectbox("Target Job Domain", list(JOB_TAXONOMY.keys()), key="comparison_target_role")
+    job_description = st.text_area(
+        "Target Job Description (optional)",
+        placeholder="Paste the job description to make scores and recommendations specific to this role.",
+        height=140,
+        key="comparison_job_description",
+    )
     saved_versions = _list_resume_versions()
     source_a, source_b = st.columns(2)
     with source_a:
@@ -229,12 +224,16 @@ def resume_comparison_page():
         st.info("Choose or upload both resume versions to compare them.")
         return
 
-    fingerprint = hashlib.sha256(f"{target_role}\0{text_a}\0{text_b}".encode("utf-8")).hexdigest()
+    fingerprint = hashlib.sha256(
+        f"{target_role}\0{job_description}\0{text_a}\0{text_b}".encode("utf-8")
+    ).hexdigest()
     state = st.session_state
-    if st.button("Compare with Groq AI", type="primary", key="run_groq_comparison"):
+    if st.button("Compare with Gemini", type="primary", key="run_gemini_comparison"):
         try:
-            with st.spinner("Comparing resumes with Groq AI..."):
-                state["resume_comparison_result"] = _compare_with_groq(text_a, text_b, target_role)
+            with st.spinner("Comparing resumes with Gemini..."):
+                state["resume_comparison_result"] = _compare_with_gemini(
+                    text_a, text_b, target_role, job_description
+                )
                 state["resume_comparison_fingerprint"] = fingerprint
                 state["resume_comparison_error"] = None
         except Exception as exc:
@@ -248,7 +247,7 @@ def resume_comparison_page():
     comparison = state.get("resume_comparison_result")
     if state.get("resume_comparison_fingerprint") != fingerprint:
         comparison = None
-        st.info("Run the Groq comparison to score the currently selected resume versions.")
+        st.info("Run the Gemini comparison to score the currently selected resume versions.")
 
     if comparison:
         st.subheader("Comparative Metrics")
@@ -257,8 +256,9 @@ def resume_comparison_page():
             ("Skills Match", "skills_match"),
             ("Projects Quality", "projects_quality"),
             ("Format & Structure", "format_structure"),
+            ("Job Description Fit" if job_description.strip() else "Role Fit", "job_match_score"),
         )
-        metric_columns = st.columns(4)
+        metric_columns = st.columns(len(metric_fields))
         for column, (label, field) in zip(metric_columns, metric_fields):
             with column:
                 st.markdown(f"**{label}**")
@@ -269,13 +269,22 @@ def resume_comparison_page():
                     delta = comparison["resume_b"][field] - comparison["resume_a"][field]
                     st.metric("Resume B", f"{comparison['resume_b'][field]} / 100", f"{delta:+}")
 
-        st.subheader("Groq AI Comparison Report")
+        st.subheader("Gemini Comparison Report")
         st.caption(f"{label_a} vs {label_b} · Model: {comparison['model']}")
         st.write(comparison["report"])
         if comparison["highlights"]:
             st.markdown("**Key Differences**")
             for highlight in comparison["highlights"]:
                 st.markdown(f"- {highlight}")
+        feedback_a, feedback_b = st.columns(2)
+        with feedback_a:
+            st.markdown(f"**Recommendations for {label_a}**")
+            for suggestion in comparison["resume_a"]["feedback"]:
+                st.markdown(f"- {suggestion}")
+        with feedback_b:
+            st.markdown(f"**Recommendations for {label_b}**")
+            for suggestion in comparison["resume_b"]["feedback"]:
+                st.markdown(f"- {suggestion}")
 
     st.subheader("Version Diff / Change Tracker")
     skills_a = _matched_role_skills(text_a, target_role)

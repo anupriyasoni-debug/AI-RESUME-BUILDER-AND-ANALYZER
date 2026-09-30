@@ -1,9 +1,11 @@
+import json
 import os
 import re
 import docx
 import io
 from pypdf import PdfReader
 from dotenv import load_dotenv
+from gemini_client import create_gemini_model
 
 load_dotenv()
 
@@ -146,6 +148,47 @@ def analyze_job_description(resume_text, job_description):
         "matched_terms": matched_terms,
         "missing_terms": missing_terms,
         "terms_analyzed": len(terms),
+    }
+
+
+def analyze_job_description_with_gemini(resume_text, job_description):
+    """Score resume evidence against a job description and return targeted feedback."""
+    if not resume_text.strip() or not job_description.strip():
+        raise ValueError("Provide both resume text and a job description for AI analysis.")
+
+    model_name, model = create_gemini_model()
+    response = model.generate_content(
+        "You are an evidence-based resume reviewer. Compare the resume to the job description. "
+        "Only count skills and experience supported by the resume; do not infer or invent qualifications. "
+        "Return one JSON object with score (integer 0-100), matched_terms (array of terms evidenced "
+        "in the resume), missing_terms (array of important job requirements not evidenced), and "
+        "feedback (array of 3-5 concise, specific recommendations).\n\n"
+        f"Job description:\n{job_description}\n\nResume:\n{resume_text}",
+        generation_config={
+            "temperature": 0.2,
+            "max_output_tokens": 800,
+            "response_mime_type": "application/json",
+        },
+    )
+    content = (response.text or "").strip()
+    if not content:
+        raise ValueError("Gemini returned an empty job-description analysis.")
+
+    result = json.loads(content)
+    score = result.get("score")
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        raise ValueError("Gemini returned an invalid job-match score.")
+    if not isinstance(result.get("matched_terms"), list) or not isinstance(result.get("missing_terms"), list):
+        raise ValueError("Gemini returned invalid matched or missing terms.")
+    if not isinstance(result.get("feedback"), list):
+        raise ValueError("Gemini returned invalid job-match feedback.")
+
+    return {
+        "score": max(0, min(100, round(score))),
+        "matched_terms": [str(term).strip() for term in result["matched_terms"] if str(term).strip()],
+        "missing_terms": [str(term).strip() for term in result["missing_terms"] if str(term).strip()],
+        "feedback": [str(item).strip() for item in result["feedback"] if str(item).strip()],
+        "model": model_name,
     }
 
 

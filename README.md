@@ -21,8 +21,10 @@ This project is a Streamlit-based web application that helps users **analyze an 
 | Role skills and keyword gap analysis | ✅ Done |
 | Bullet impact, grammar-pattern, and ATS formatting checks | ✅ Done |
 | AI Resume Assistant for selected summary, experience, and project bullets | ✅ Done |
-| Optional Groq-powered bullet enhancement in six rewrite modes | ✅ Done |
-| Resume version comparison with Groq AI metrics and report | ✅ Done |
+| Optional Gemini-powered bullet enhancement in six rewrite modes | ✅ Done |
+| Live summary and experience writing tips with on-demand Gemini suggestions | ✅ Done |
+| Gemini job-description scoring and feedback in resume analysis | ✅ Done |
+| Resume version comparison with role/JD-specific Gemini metrics and feedback | ✅ Done |
 | Resume Builder form (personal info, education, experience, projects, skills, certifications) | ✅ Done |
 | Generate & download builder output as PDF | ✅ Done |
 | Simple two-page Streamlit UI (Analyzer / Builder) | ✅ Done |
@@ -34,8 +36,8 @@ This project is a Streamlit-based web application that helps users **analyze an 
 - **PDF text extraction:** PyPDF2
 - **DOCX text extraction:** python-docx
 - **PDF generation:** fpdf2
-- **AI text improvement (optional):** Groq API (uses `GROQ_MODEL`, default `llama-3.3-70b-versatile`)
-- **Resume comparison (optional):** Groq API (`llama-3.3-70b-versatile` by default; override with `GROQ_MODEL`)
+- **AI text improvement (optional):** Google Gemini API (uses `GEMINI_MODEL`, default `gemini-3.8-flash`)
+- **Resume comparison (optional):** Google Gemini API (`gemini-3.8-flash` by default; override with `GEMINI_MODEL`)
 - **Config management:** python-dotenv
 
 ---
@@ -46,10 +48,10 @@ resume_app/
 ├── app.py               # Main Streamlit app (navigation + UI)
 ├── analyzer.py           # Text extraction, skill/section detection, ATS scoring, suggestions
 ├── resume_builder.py     # Resume Builder form UI
-├── resume_comparison.py  # Resume version source selection, Groq scores, and diff report
+├── resume_comparison.py  # Resume version source selection, Gemini scores, and diff report
 ├── pdf_generator.py      # Builds the downloadable resume PDF
 ├── requirements.txt      # Python dependencies
-├── .env.example           # Template for Gemini and Groq API configuration
+├── env.example            # Template for Gemini API configuration
 └── README.md              # This file
 ```
 
@@ -60,7 +62,8 @@ resume_app/
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# Configure GROQ_API_KEY in a local .env file for AI bullet improvement and resume comparison.
+# Copy env.example to .env and set GEMINI_API_KEY for AI writing, analysis, and comparison.
+# Keep .env private; it is ignored by Git.
 
 # 2. Run the app
 streamlit run app.py
@@ -90,24 +93,26 @@ This is intentionally simple and transparent (no black-box scoring) so it's easy
 3. App detects skills, sections, and missing sections
 4. ATS score is calculated and shown with a progress bar
 5. Improvement suggestions are displayed (rule-based or AI-based)
+6. Optionally request a Gemini semantic match score and feedback for the pasted job description
 
 **Resume Builder**
 1. Fill in personal details, education, experience, projects, skills, certifications
 2. Click "Generate Resume PDF"
 3. Download the formatted resume
+4. Use live writing tips, on-demand Gemini suggestions, or the bullet refiner while editing
 
 ---
 
 ## ⚠️ Known Limitations (to address in later weeks)
 - Skill detection relies on a fixed keyword list — no fuzzy matching or synonym handling yet
-- JD matching and grammar checks are local heuristics; they do not evaluate semantic fit or replace a full proofreader
+- Local JD matching and grammar checks are heuristics; optional Gemini JD review adds semantic feedback but does not replace a full proofreader
 - Scanned/image-based PDFs (no embedded text layer) won't extract text — OCR not implemented
 - No persistence layer — builder data is not saved between sessions
 
 ---
 
 ## 🗺️ Planned for Next Week
-- Add job description matching (compare resume keywords against a pasted JD)
+- Improve job description matching precision and evidence-based feedback
 - Add OCR fallback for scanned PDF resumes
 - Add multiple resume templates/themes in the builder
 - Improve skill detection with a larger, categorized skill taxonomy
