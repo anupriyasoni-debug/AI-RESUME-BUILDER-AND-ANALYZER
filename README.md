@@ -1,119 +1,111 @@
-# AI Resume Analyzer & Builder — Week 1 Submission
+# AI Resume Analyzer & Builder
 
 ## 📌 Overview
-This project is a Streamlit-based web application that helps users **analyze an existing resume** for ATS (Applicant Tracking System) compatibility and **build a new resume from scratch**, exporting it as a downloadable PDF. It combines rule-based text analysis with an optional Gemini layer for AI-assisted text improvement.
+This project is a Streamlit-based web application that helps users **analyze an existing resume** for ATS (Applicant Tracking System) compatibility and **build a new resume from scratch**, exporting it as a downloadable, beautifully styled PDF.
 
-**Goal for Week 1:** Build and validate a working end-to-end MVP — upload → analyze → score → suggest, plus a functional resume builder → PDF export.
+The application runs **100% locally and offline** without any external AI API keys, cloud inference services, or subscription dependencies. It features a modular architecture that combines transparent rule-based NLP, local TF-IDF semantic matching, and a dedicated training pipeline for integrating your own custom-trained machine learning models.
 
 ---
 
-## ✅ Features Implemented This Week
+## ✅ Features Implemented
 
-| Feature | Status |
-|---|---|
-| Upload resume (PDF/DOCX) and extract text | ✅ Done |
-| ATS score (0–100) based on sections, skills, length, formatting | ✅ Done |
-| Skill detection from a keyword database | ✅ Done |
-| Section detection (contact, summary, education, experience, skills, projects, certifications) | ✅ Done |
-| Missing section warnings | ✅ Done |
-| Rule-based improvement suggestions | ✅ Done |
-| Job description keyword matching | ✅ Done |
-| Role skills and keyword gap analysis | ✅ Done |
-| Bullet impact, grammar-pattern, and ATS formatting checks | ✅ Done |
-| AI Resume Assistant for selected summary, experience, and project bullets | ✅ Done |
-| Optional Gemini-powered bullet enhancement in six rewrite modes | ✅ Done |
-| Live summary and experience writing tips with on-demand Gemini suggestions | ✅ Done |
-| Gemini job-description scoring and feedback in resume analysis | ✅ Done |
-| Resume version comparison with role/JD-specific Gemini metrics and feedback | ✅ Done |
-| Resume Builder form (personal info, education, experience, projects, skills, certifications) | ✅ Done |
-| Generate & download builder output as PDF | ✅ Done |
-| Simple two-page Streamlit UI (Analyzer / Builder) | ✅ Done |
+| Feature | Status | Engine / Algorithm |
+|---|---|---|
+| Upload resume (PDF/DOCX) & text extraction | ✅ Done | PyMuPDF (`pymupdf`) + `python-docx` (with `pypdf` fallback) |
+| ATS score (0–100) multi-factor breakdown | ✅ Done | Section, skill, length, and impact heuristic weighting |
+| Skill & keyword detection | ✅ Done | Domain taxonomy dictionary across 10 career tracks |
+| Section detection & gap detection | ✅ Done | Header normalization & expected section auditing |
+| Resume-to-Job-Description match | ✅ Done | Local TF-IDF Vectorization & Cosine Similarity |
+| Bullet impact & action-verb checks | ✅ Done | Action-verb scanning + metric/quantification checks |
+| Grammar & text-formatting checks | ✅ Done | Local pattern matching (double words, agreement, line lengths) |
+| Local AI Bullet Refiner (6 modes) | ✅ Done | Local rule-based NLP rewriter (`local_model.py`) |
+| Live writing tips & contextual suggestions | ✅ Done | Rule-based section analyzer (`local_model.py`) |
+| Resume Version Comparison | ✅ Done | Multi-factor comparative scoring & diff report |
+| Modular Machine Learning Pipeline | ✅ Done | `training/` pipeline for custom model training & evaluation |
+| Resume Builder with interactive PDF export | ✅ Done | `fpdf2` with multiple color palettes and typography |
 
 ---
 
 ## 🧱 Tech Stack
-- **Frontend/App framework:** Streamlit
-- **PDF text extraction:** PyPDF2
-- **DOCX text extraction:** python-docx
-- **PDF generation:** fpdf2
-- **AI text improvement (optional):** Google Gemini API (uses `GEMINI_MODEL`, default `gemini-3.8-flash`)
-- **Resume comparison (optional):** Google Gemini API (`gemini-3.8-flash` by default; override with `GEMINI_MODEL`)
-- **Config management:** python-dotenv
+- **Frontend / UI:** Streamlit
+- **PDF Text Extraction:** PyMuPDF (`pymupdf`), `PyPDF2`
+- **DOCX Text Extraction:** `python-docx`
+- **PDF Generation:** `fpdf2`
+- **Local AI & NLP Engine:** Pure Python + NumPy TF-IDF and rule-based heuristics (`local_model.py`)
+- **Model Training Pipeline:** `scikit-learn` (for training custom classifiers)
+- **Local Storage:** SQLite (`resumes.db`) for saving builder versions
 
 ---
 
 ## 📂 Project Structure
 ```
-resume_app/
-├── app.py               # Main Streamlit app (navigation + UI)
-├── analyzer.py           # Text extraction, skill/section detection, ATS scoring, suggestions
-├── resume_builder.py     # Resume Builder form UI
-├── resume_comparison.py  # Resume version source selection, Gemini scores, and diff report
-├── pdf_generator.py      # Builds the downloadable resume PDF
-├── requirements.txt      # Python dependencies
-├── env.example            # Template for Gemini API configuration
-└── README.md              # This file
+AI-RESUME-BUILDER-AND-ANALYZER/
+├── app.py                      # Main Streamlit app (navigation + UI)
+├── analyzer.py                 # Text extraction, taxonomy detection, ATS scoring
+├── local_model.py              # Local NLP, TF-IDF cosine similarity, rewriter & base model
+├── resume_builder.py           # Resume Builder form UI & PDF generator integration
+├── resume_comparison.py        # Version comparison, local scoring, and diff report
+├── pdf_generator.py            # Builds the downloadable resume PDF
+├── icons.py                    # SVG iconography for UI
+├── style.py                    # Custom CSS typography & themes
+├── requirements.txt            # Python dependencies (local-only, zero API SDKs)
+├── env.example                 # Configuration template for local directories
+├── resumes.db                  # Local SQLite database for saved resumes
+├── data/                       # Directory for training datasets (Kaggle CSVs)
+│   ├── raw/                    # Raw downloaded datasets
+│   └── README.md               # Guide on supported dataset formats & schemas
+├── models/                     # Saved local model artifacts (.joblib, metadata)
+│   └── README.md               # Model loading documentation
+├── training/                   # Modular ML training pipeline
+│   ├── __init__.py
+│   ├── data_preprocessing.py   # Dataset loading, cleaning, and tokenization
+│   ├── train_classifier.py     # Script to train and save a local model
+│   └── evaluate.py             # Accuracy, precision, recall, and F1 evaluation
+└── README.md                   # This documentation
 ```
 
 ---
 
-## ⚙️ Run
+## ⚙️ How to Run Locally
 
-# 1. Install dependencies
+### 1. Install Dependencies
+```bash
 pip install -r requirements.txt
-
-# Copy env.example to .env and set GEMINI_API_KEY for AI writing, analysis, and comparison.
-# Keep .env private; it is ignored by Git.
-
-# 2. Run the app
-streamlit run app.py
 ```
-App opens at `http://localhost:8501`.
+
+### 2. Launch the Application
+```bash
+python -m streamlit run app.py
+```
+The app will automatically launch in your browser at `http://localhost:8501`. No API keys or `.env` file configuration are required. The interface uses local system fonts and does not make external network requests.
 
 ---
 
-## 🧠 How the ATS Score Works
-The score (0–100) is a weighted sum of four checks, all computed in `analyzer.py`:
+## 🧠 Optional: Training a Local Machine Learning Classifier
 
-| Component | Weight | Logic |
-|---|---|---|
-| Section completeness | 40 pts | % of expected sections found (contact, summary, education, experience, skills, projects, certifications) |
-| Skill keyword matches | 30 pts | Number of skills found against a curated skills database (capped at 15 skills) |
-| Resume length | 15 pts | Ideal range: 300–900 words |
-| Formatting signals | 15 pts | Presence of strong action verbs (developed, led, implemented, etc.) |
+The training pipeline in `training/` allows you to train a **supervised text classifier** to predict a candidate's broad resume role or domain category (e.g. *Data Science*, *DevOps*, *Java Developer*).
 
-This is intentionally simple and transparent (no black-box scoring) so it's easy to explain in the submission and to extend later.
+> **Important Scope Note:** The trained classifier specifically predicts the resume's role/domain label. Skill extraction (rule-based taxonomy), resume scoring (transparent weighted formula), job-description matching (TF-IDF cosine similarity), and bullet rewriting (rule-based NLP) remain local algorithms and are not modified by this classifier.
 
----
+To train and integrate your own local classifier:
 
-## 🖥️ App Flow
-**Resume Analyzer**
-1. Upload a `.pdf` or `.docx` resume
-2. App extracts raw text
-3. App detects skills, sections, and missing sections
-4. ATS score is calculated and shown with a progress bar
-5. Improvement suggestions are displayed (rule-based or AI-based)
-6. Optionally request a Gemini semantic match score and feedback for the pasted job description
-
-**Resume Builder**
-1. Fill in personal details, education, experience, projects, skills, certifications
-2. Click "Generate Resume PDF"
-3. Download the formatted resume
-4. Use live writing tips, on-demand Gemini suggestions, or the bullet refiner while editing
-
----
-
-## ⚠️ Known Limitations (to address in later weeks)
-- Skill detection relies on a fixed keyword list — no fuzzy matching or synonym handling yet
-- Local JD matching and grammar checks are heuristics; optional Gemini JD review adds semantic feedback but does not replace a full proofreader
-- Scanned/image-based PDFs (no embedded text layer) won't extract text — OCR not implemented
-- No persistence layer — builder data is not saved between sessions
-
----
-
-## 🗺️ Planned for Next Week
-- Improve job description matching precision and evidence-based feedback
-- Add OCR fallback for scanned PDF resumes
-- Add multiple resume templates/themes in the builder
-- Improve skill detection with a larger, categorized skill taxonomy
-- Add basic session persistence (save/load builder drafts)
+1. **Install Training Dependencies:**
+   ```bash
+   pip install -r requirements-training.txt
+   ```
+2. **Obtain and Place a Dataset:**
+   Download a labeled resume dataset (e.g. Kaggle's `UpdatedResumeDataSet.csv` or `Resume.csv`) and place it in `data/raw/` (e.g., `data/raw/UpdatedResumeDataSet.csv`).
+3. **Run Training Script:**
+   ```bash
+   python training/train_classifier.py --data data/raw/UpdatedResumeDataSet.csv
+   ```
+4. **Inspect Metrics:** The script evaluates test-set precision, recall, and F1-score, and automatically saves:
+   - `models/resume_classifier.joblib`
+   - `models/tfidf_vectorizer.joblib`
+   - `models/model_metadata.json`
+5. **Activate Trained Classifier in App:**
+   Create a `.env` file from `env.example` and set:
+   ```env
+   USE_CUSTOM_MODEL=true
+   ```
+   When active, the app displays the classifier's predicted candidate role category during resume analysis.

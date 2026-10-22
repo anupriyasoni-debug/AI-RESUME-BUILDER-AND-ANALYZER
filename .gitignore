@@ -5,6 +5,12 @@
 
 # Local runtime data
 resumes.db
+data/processed/
+data/*.db
+data/*.csv
+models/job_skill_classifier/
+*.joblib
+*.pkl
 
 # Python virtual environments and generated files
 .venv/

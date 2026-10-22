@@ -1,6 +1,8 @@
 from fpdf import FPDF
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 import io
+import os
+from pathlib import Path
 
 
 COLOR_PALETTES = {
@@ -291,6 +293,34 @@ PDF_PALETTES_HEX = {
     },
 }
 
+WINDOWS_FONT_DIRECTORY = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+EMBEDDED_FONT_FILES = {
+    "Arial": {"": "arial.ttf", "B": "arialbd.ttf", "I": "ariali.ttf", "BI": "arialbi.ttf"},
+    "Calibri": {"": "calibri.ttf", "B": "calibrib.ttf", "I": "calibrii.ttf", "BI": "calibriz.ttf"},
+    "SegoeUI": {"": "segoeui.ttf", "B": "segoeuib.ttf", "I": "segoeuii.ttf", "BI": "segoeuiz.ttf"},
+    "Georgia": {"": "georgia.ttf", "B": "georgiab.ttf", "I": "georgiai.ttf", "BI": "georgiaz.ttf"},
+    "Verdana": {"": "verdana.ttf", "B": "verdanab.ttf", "I": "verdanai.ttf", "BI": "verdanaz.ttf"},
+    "Consolas": {"": "consola.ttf", "B": "consolab.ttf", "I": "consolai.ttf", "BI": "consolaz.ttf"},
+    "Trebuchet": {"": "trebuc.ttf", "B": "trebucbd.ttf", "I": "trebucit.ttf", "BI": "trebucbi.ttf"},
+    "TimesNewRoman": {"": "times.ttf", "B": "timesbd.ttf", "I": "timesi.ttf", "BI": "timesbi.ttf"},
+}
+BUILTIN_PDF_FONTS = {"Helvetica", "Times", "Courier"}
+
+
+def _register_pdf_font(pdf, family):
+    if family in BUILTIN_PDF_FONTS:
+        return family
+    files = EMBEDDED_FONT_FILES.get(family)
+    if not files:
+        return "Helvetica"
+    paths = {style: WINDOWS_FONT_DIRECTORY / filename for style, filename in files.items()}
+    if not all(path.is_file() for path in paths.values()):
+        return "Helvetica"
+    for style, path in paths.items():
+        pdf.add_font(family=family, style=style, fname=str(path))
+    return family
+
+
 PALETTE_ALIASES = {
     "Navy and White": "Navy & Cool Gray",
     "Classic Black and White": "Classic Black & White",
@@ -307,6 +337,15 @@ def get_pdf_palette(color_scheme):
 
 
 class CleanResume(FPDF):
+    resume_font_family = "Helvetica"
+
+    def set_font(self, family="", style="", size=0):
+        # Apply the selected family consistently across every template.
+        selected_family = getattr(self, "resume_font_family", "Helvetica")
+        if family in {"", "Helvetica", "Times", "Courier"}:
+            family = selected_family
+        super().set_font(family, style, size)
+
     def section_header(self, title, style):
         x = self.l_margin
         y = self.get_y()
@@ -356,8 +395,9 @@ class CleanResume(FPDF):
             self.ln(2)
 
 
-def build_pdf(data, template=None, color_scheme=None):
+def build_pdf(data, template=None, color_scheme=None, font_family="Helvetica"):
     pdf = CleanResume(orientation="P", unit="mm", format="A4")
+    pdf.resume_font_family = _register_pdf_font(pdf, font_family)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
@@ -402,6 +442,18 @@ def build_pdf(data, template=None, color_scheme=None):
             "header": "elegant", "section_style": "elegant",
             "section_order": ("summary", "experience", "education", "projects", "skills", "certifications"),
         },
+        "Academic / Research Layout": {
+            "header": "executive", "section_style": "executive",
+            "section_order": ("education", "summary", "projects", "experience", "skills", "certifications"),
+        },
+        "ATS Classic Single Column": {
+            "header": "minimal", "section_style": "clean",
+            "section_order": ("summary", "experience", "skills", "education", "projects", "certifications"),
+        },
+        "Data / Analytics Layout": {
+            "header": "elegant", "section_style": "elegant",
+            "section_order": ("summary", "skills", "projects", "experience", "education", "certifications"),
+        },
     }
     template_aliases = {"Professional": "Professional Layout", "Modern": "Modern Layout", "Clean": "Clean Layout"}
     layout = layouts.get(template_aliases.get(template, template), layouts["Professional Layout"])
@@ -418,8 +470,9 @@ def build_pdf(data, template=None, color_scheme=None):
     email_phone = "  |  ".join(
         value for value in (data.get("email", ""), data.get("phone", "")) if value
     )
+    headline = data.get("headline", "")
     additional_contact_items = [
-        value for value in (data.get("linkedin", ""), data.get("github", ""), data.get("location", "")) if value
+        value for value in (data.get("location", ""), data.get("linkedin", ""), data.get("portfolio", ""), data.get("website", ""), data.get("github", "")) if value
     ]
     pdf.set_font("Helvetica", "", 9)
     additional_contact_lines = []
@@ -444,7 +497,7 @@ def build_pdf(data, template=None, color_scheme=None):
         pdf.set_text_color(255, 255, 255)
         pdf.multi_cell(sidebar_width - 10, 6, name)
         pdf.set_font("Helvetica", "", 7.5)
-        sidebar_contact = [data.get(key, "") for key in ("email", "phone", "location", "linkedin", "github") if data.get(key)]
+        sidebar_contact = [data.get(key, "") for key in ("email", "phone", "location", "linkedin", "portfolio", "website", "github") if data.get(key)]
         if sidebar_contact:
             pdf.ln(3)
             pdf.multi_cell(sidebar_width - 10, 4, "\n".join(sidebar_contact))
@@ -460,6 +513,10 @@ def build_pdf(data, template=None, color_scheme=None):
         pdf.set_font("Helvetica", "B", 19)
         pdf.set_text_color(*palette["primary"])
         pdf.cell(content_width, 9, name, ln=True)
+        if headline:
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(*palette["muted"])
+            pdf.cell(content_width, 5, headline, ln=True)
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(*palette["muted"])
         pdf.cell(content_width, 5, email_phone, ln=True)
@@ -503,6 +560,10 @@ def build_pdf(data, template=None, color_scheme=None):
         pdf.set_font("Helvetica", "B", 18)
         pdf.set_text_color(*palette["primary"])
         pdf.cell(content_width, 9, name, ln=True)
+        if headline:
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(*palette["muted"])
+            pdf.cell(content_width, 5, headline, ln=True)
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(*palette["muted"])
         pdf.cell(content_width, 5, email_phone, ln=True)
@@ -547,6 +608,10 @@ def build_pdf(data, template=None, color_scheme=None):
         pdf.set_font("Helvetica", "B", 19)
         pdf.set_text_color(*palette["primary"])
         pdf.cell(content_width, 9, name, ln=True, align="C")
+        if headline:
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(*palette["muted"])
+            pdf.cell(content_width, 5, headline, ln=True, align="C")
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(*palette["muted"])
         pdf.cell(content_width, 5, email_phone, ln=True, align="C")
@@ -573,8 +638,16 @@ def build_pdf(data, template=None, color_scheme=None):
         "projects": "Key Projects",
         "education": "Education",
         "certifications": "Certifications",
+        "languages": "Languages",
+        "awards": "Awards & Honors",
+        "achievements": "Selected Achievements",
+        "volunteer": "Volunteer Experience",
+        "extracurricular": "Extracurricular Activities",
+        "publications": "Publications",
+        "interests": "Interests",
     }
-    for section in layout["section_order"]:
+    optional_sections = ("languages", "awards", "achievements", "volunteer", "extracurricular", "publications", "interests")
+    for section in (*layout["section_order"], *optional_sections):
         write_section(section_titles[section], data.get(section))
 
     buffer = io.BytesIO()
@@ -587,24 +660,36 @@ def generate_resume_pdf(
     data: dict,
     template: str = "Professional Layout",
     color_scheme: str = "Classic Black and White",
+    font_family: str = "Helvetica",
 ) -> bytes:
     """Convert the existing builder payload to the clean text layout."""
     flat_data = dict(data)
     flat_data["skills"] = ", ".join(data.get("skills", []))
     flat_data["experience"] = "\n\n".join(
-        f"{item.get('role', '')} - {item.get('company', '')} ({item.get('duration', '')})\n{item.get('description', '')}"
+        " | ".join(value for value in (
+            " at ".join(value for value in (item.get("role", ""), item.get("company", "")) if value),
+            item.get("employment_type", ""), item.get("location", ""), item.get("duration", "")
+        ) if value) + "\n" + item.get("description", "")
         for item in data.get("experience", []) if any(item.values())
     )
     flat_data["projects"] = "\n\n".join(
-        f"{item.get('title', '')} ({item.get('tech', '')})\n{item.get('description', '')}"
+        " | ".join(value for value in (item.get("title", ""), item.get("dates", ""), item.get("url", "")) if value)
+        + (f"\nTools: {item.get('tech')}" if item.get("tech") else "")
+        + (f"\n{item.get('description')}" if item.get("description") else "")
         for item in data.get("projects", []) if any(item.values())
     )
     flat_data["education"] = "\n".join(
-        f"{item.get('degree', '')} - {item.get('institute', '')} ({item.get('year', '')})"
+        " | ".join(value for value in (
+            " ".join(part for part in (item.get("degree", ""), item.get("field", "")) if part),
+            item.get("institute", ""), item.get("location", ""), item.get("year", ""), item.get("score", "")
+        ) if value) + (f"\n{item.get('description')}" if item.get("description") else "")
         for item in data.get("education", []) if any(item.values())
     )
     flat_data["certifications"] = "\n".join(data.get("certifications", []))
-    return build_pdf(flat_data, template=template, color_scheme=color_scheme).getvalue()
+    for section in ("languages", "awards", "achievements", "volunteer", "extracurricular", "publications", "interests"):
+        value = data.get(section, [])
+        flat_data[section] = "\n".join(value) if isinstance(value, list) else str(value or "")
+    return build_pdf(flat_data, template=template, color_scheme=color_scheme, font_family=font_family).getvalue()
 
 
 def render_pdf_to_thumbnail(pdf_bytes: bytes, dpi: int = 120) -> bytes:

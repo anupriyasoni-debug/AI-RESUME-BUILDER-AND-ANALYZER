@@ -1,0 +1,28 @@
+{
+  "created_at_utc": "2026-10-22T18:44:14.616448+00:00",
+  "model_type": "TF-IDF + class-balanced LogisticRegression",
+  "task": "classify extracted job-skill label as keep (1) or reject (0)",
+  "training_csv": "C:\\Users\\HP\\OneDrive\\Desktop\\MICRO3\\AI-RESUME-BUILDER-AND-ANALYZER\\data\\processed\\skill_labels_v6_v9_shadow5_training.csv",
+  "training_rows": 558,
+  "training_job_ids": 274,
+  "class_counts": {
+    "reject_0": 75,
+    "keep_1": 483
+  },
+  "feature_columns": [
+    "title",
+    "skill",
+    "requirement_type",
+    "evidence_text"
+  ],
+  "excluded_columns": [
+    "job_id",
+    "confidence",
+    "review_note"
+  ],
+  "limitations": [
+    "Small pilot with only 18 rejected examples; experimental, not for automatic decisions.",
+    "Holdout metrics use one job-ID-grouped split and may vary with the sample.",
+    "The candidate is not wired into the app; current app behavior is unchanged."
+  ]
+}

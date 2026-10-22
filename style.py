@@ -1,7 +1,5 @@
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-
 :root {
     --fs-h1: 1.85rem;
     --fs-h2: 1.05rem;
@@ -12,7 +10,7 @@ CUSTOM_CSS = """
 }
 
 html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 #MainMenu {visibility: hidden;}
@@ -53,7 +51,7 @@ footer {visibility: hidden;}
 .hero-header-inner { position: relative; z-index: 1; }
 .hero-title-row { display: flex; align-items: center; }
 .hero-header h1 {
-    font-family: 'Poppins', sans-serif;
+    font-family: inherit;
     font-weight: 700;
     font-size: var(--fs-h1);
     margin: 0;
@@ -256,69 +254,28 @@ div:has(> [data-testid="stFileUploader"]) {
 
 GRADIENT_CSS = """
 <style>
-@keyframes appGradientDrift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+:root {
+    --app-ink: #172033;
+    --app-muted: #637083;
+    --app-border: #e2e8f0;
+    --app-accent: #3157a4;
+    --app-surface: #ffffff;
 }
-
-@keyframes headingGradientShift {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 200% 50%; }
-}
-
-@keyframes cardGradientDrift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-.section-heading,
-.preview-card h4,
-.capability h4 {
-    color: #0f766e;
-    background: linear-gradient(90deg, #0f766e, #2563eb, #db2777, #0f766e);
-    background-size: 200% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: headingGradientShift 8s linear infinite;
-}
-
-.stApp {
-    background: linear-gradient(
-        120deg,
-        #fcfdff,
-        #f1f7ff,
-        #f7f3ff,
-        #fffaf2,
-        #fcfdff
-    ) !important;
-    background-size: 300% 300% !important;
-    animation: appGradientDrift 34s ease-in-out infinite !important;
-}
-
-.preview-card,
-.capability {
-    background-image: linear-gradient(
-        115deg,
-        #ffffff 0%,
-        #f3fbf8 30%,
-        #f4f7ff 60%,
-        #fff8f1 85%,
-        #ffffff 100%
-    ) !important;
-    background-size: 250% 250%;
-    animation: cardGradientDrift 26s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .section-heading,
-    .preview-card h4,
-    .capability h4,
-    .preview-card,
-    .capability,
-    .stApp {
-        animation: none;
-    }
-}
+.stApp { background: #f5f7fb !important; color: var(--app-ink); }
+.block-container { max-width: 1280px; padding-top: 2rem; padding-bottom: 3rem; }
+[data-testid="stSidebar"] { background: #111c32; border-right: 1px solid #23324b; }
+[data-testid="stSidebar"] * { color: #edf2f8; }
+[data-testid="stSidebar"] [role="radiogroup"] label { border-radius: 8px; padding: .35rem .5rem; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background: rgba(255,255,255,.08); }
+[data-testid="stVerticalBlockBorderWrapper"] { border-color: var(--app-border) !important; border-radius: 12px !important; background: var(--app-surface); }
+[data-testid="stMetric"] { border: 1px solid var(--app-border); border-radius: 10px; padding: .9rem 1rem; background: #fff; }
+[data-testid="stMetricLabel"] { color: var(--app-muted) !important; }
+[data-testid="stMetricValue"] { color: var(--app-ink); }
+.stButton > button, .stDownloadButton > button { border-radius: 8px; font-weight: 600; transition: border-color .15s ease, background .15s ease; }
+.stButton > button[kind="primary"], .stDownloadButton > button { background: var(--app-accent); border-color: var(--app-accent); color: #fff; }
+.stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover { background: #264887; border-color: #264887; }
+[data-testid="stTextInput"] input, [data-testid="stTextArea"] textarea, [data-testid="stSelectbox"] [data-baseweb="select"] > div { border-radius: 8px; }
+[data-testid="stFileUploaderDropzone"] { border: 1px dashed #b8c5d8; border-radius: 10px; background: #fff; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 """

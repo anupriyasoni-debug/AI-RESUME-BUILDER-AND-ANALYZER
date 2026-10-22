@@ -1,0 +1,58 @@
+{
+  "evaluation": "single holdout grouped by job_id; exploratory due to small pilot",
+  "test_rows": 112,
+  "test_job_groups": 55,
+  "accuracy": 0.8661,
+  "balanced_accuracy": 0.6409,
+  "confusion_matrix_labels_0_reject_1_keep": [
+    [
+      5,
+      10
+    ],
+    [
+      5,
+      92
+    ]
+  ],
+  "classes": {
+    "0_reject": {
+      "support": 15,
+      "precision": 0.5,
+      "recall": 0.3333,
+      "f1": 0.4
+    },
+    "1_keep": {
+      "support": 97,
+      "precision": 0.902,
+      "recall": 0.9485,
+      "f1": 0.9246
+    }
+  },
+  "classification_report": {
+    "reject": {
+      "precision": 0.5,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.4,
+      "support": 15.0
+    },
+    "keep": {
+      "precision": 0.9019607843137255,
+      "recall": 0.9484536082474226,
+      "f1-score": 0.9246231155778895,
+      "support": 97.0
+    },
+    "accuracy": 0.8660714285714286,
+    "macro avg": {
+      "precision": 0.7009803921568627,
+      "recall": 0.640893470790378,
+      "f1-score": 0.6623115577889447,
+      "support": 112.0
+    },
+    "weighted avg": {
+      "precision": 0.8481267507002801,
+      "recall": 0.8660714285714286,
+      "f1-score": 0.8543610911701364,
+      "support": 112.0
+    }
+  }
+}

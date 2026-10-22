@@ -5,7 +5,7 @@ import docx
 import io
 from pypdf import PdfReader
 from dotenv import load_dotenv
-from gemini_client import create_gemini_model
+from local_model import local_engine
 
 load_dotenv()
 
@@ -63,10 +63,22 @@ EXPECTED_SECTIONS = {
 }
 
 def extract_text_from_pdf(uploaded_file):
-    """Safely extracts selectable text from a PDF stream."""
+    """Safely extracts selectable text from a PDF stream using PyMuPDF with pypdf fallback."""
     try:
         uploaded_file.seek(0)
-        pdf_bytes = io.BytesIO(uploaded_file.read())
+        file_bytes = uploaded_file.read()
+        # 1. Try PyMuPDF (fitz) for fast and robust text extraction
+        try:
+            import pymupdf
+            doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+            extracted_chunks = [page.get_text() for page in doc if page.get_text()]
+            if extracted_chunks:
+                return "\n".join(extracted_chunks).strip()
+        except Exception:
+            pass
+
+        # 2. Fallback to pypdf.PdfReader
+        pdf_bytes = io.BytesIO(file_bytes)
         reader = PdfReader(pdf_bytes)
         extracted_chunks = []
         for page in reader.pages:
@@ -99,97 +111,277 @@ def extract_text(uploaded_file):
     return ""
 
 
+ADDITIONAL_TECH_TERMS = [
+    # Core Data Science & AI/ML
+    "machine learning", "deep learning", "artificial intelligence", "nlp",
+    "natural language processing", "computer vision", "neural networks",
+    "data science", "data analysis", "data analytics", "data modeling",
+    "data pipelines", "data engineering", "etl", "big data", "data warehouse",
+    "spark", "pyspark", "hadoop", "kafka", "flink", "hive", "dbt",
+    "nosql", "mongodb", "postgresql", "mysql", "oracle", "sqlite", "redis",
+    "snowflake", "bigquery", "redshift", "databricks",
+    "scipy", "matplotlib", "seaborn", "plotly", "keras", "xgboost", "lightgbm", "catboost",
+    "llm", "llms", "rag", "langchain", "llamaindex", "hugging face", "transformers",
+    # Core Languages & Frameworks
+    "python", "r", "c", "c++", "c#", "golang", "go", "rust", "scala",
+    "javascript", "typescript", "react", "angular", "vue", "node.js", "nodejs",
+    "django", "flask", "fastapi", "spring boot", "ruby", "php",
+    # Cloud, DevOps & Tools
+    "aws", "azure", "gcp", "google cloud", "cloud computing",
+    "docker", "kubernetes", "k8s", "terraform", "ansible", "helm",
+    "linux", "unix", "bash", "shell scripting", "powershell",
+    "git", "github", "gitlab", "bitbucket", "jira", "confluence",
+    "ci/cd", "continuous integration", "continuous deployment", "jenkins", "github actions",
+    "rest api", "restful api", "graphql", "grpc", "microservices",
+    "unit testing", "integration testing", "test automation", "pytest",
+    # Agile / Methodologies / Analytics
+    "agile", "scrum", "kanban", "sprint planning",
+    "excel", "vba", "tableau", "power bi", "looker", "metabase",
+    "statistics", "feature engineering", "predictive modeling", "a/b testing", "hypothesis testing",
+]
+
+TERM_CANONICAL_MAP = {
+    # Kubernetes
+    "k8s": "kubernetes",
+    "k8": "kubernetes",
+    # Scikit-learn
+    "sklearn": "scikit-learn",
+    # Go / Golang
+    "golang": "go",
+    # JavaScript & TypeScript
+    "js": "javascript",
+    "ts": "typescript",
+    # Python
+    "py": "python",
+    # Databases
+    "postgres": "postgresql",
+    "mongo": "mongodb",
+    # Web Frameworks
+    "reactjs": "react",
+    "react.js": "react",
+    "vuejs": "vue",
+    "vue.js": "vue",
+    "angularjs": "angular",
+    "angular.js": "angular",
+    "nodejs": "node.js",
+    "node": "node.js",
+    # AI / ML
+    "tf": "tensorflow",
+    "torch": "pytorch",
+    "huggingface": "hugging face",
+    "ml": "machine learning",
+    "ai": "artificial intelligence",
+    "dl": "deep learning",
+    "nlp": "natural language processing",
+    "llm": "llms",
+    "large language model": "llms",
+    "large language models": "llms",
+    "retrieval augmented generation": "rag",
+    "retrieval-augmented generation": "rag",
+    # Cloud & DevOps
+    "amazon web services": "aws",
+    "google cloud": "gcp",
+    "google cloud platform": "gcp",
+    "microsoft azure": "azure",
+    "continuous integration": "ci/cd",
+    "continuous deployment": "ci/cd",
+    "ci / cd": "ci/cd",
+    # APIs & Other
+    "restful api": "rest api",
+    "restful apis": "rest api",
+    "rest apis": "rest api",
+    "powerbi": "power bi",
+    "power-bi": "power bi",
+    "eda": "exploratory data analysis",
+}
+
+KNOWN_TECH_ACRONYMS = {
+    "api", "sql", "aws", "gcp", "etl", "nlp", "rag", "sdk", "cli",
+    "siem", "soc", "erp", "sap", "crm", "kpi", "roi", "ci/cd",
+}
+
+
+def canonicalize_skill(skill: str) -> str:
+    """
+    Returns the normalized canonical name for a given skill or alias.
+    e.g. 'k8s' -> 'kubernetes', 'sklearn' -> 'scikit-learn', 'golang' -> 'go'
+    """
+    if not skill:
+        return ""
+    clean = skill.strip().lower()
+    return TERM_CANONICAL_MAP.get(clean, clean)
+
+
+def _build_boundary_pattern(term: str) -> str:
+    """
+    Constructs a boundary-safe regular expression pattern for a technical term or skill.
+    Ensures that short or ambiguous terms such as 'r', 'go', and 'c' are not matched
+    inside unrelated words or false-positive contexts (e.g. 'c++' matching 'c', 'r&d'
+    matching 'r', or 'go to' / 'django' matching 'go').
+    """
+    clean_term = term.strip().lower()
+    escaped = re.escape(clean_term)
+    prefix = r"(?<![a-zA-Z0-9])"
+    suffix = r"(?![a-zA-Z0-9])"
+
+    if clean_term == "c":
+        # Disallow C++, C#, C-level, C-suite, and c/o (care of)
+        suffix = r"(?![+#a-zA-Z0-9])(?!(?:-level|-suite|/o\b))"
+    elif clean_term == "r":
+        # Disallow R&D, R & D, and r-squared
+        suffix = r"(?![a-zA-Z0-9])(?!(?:\s*&\s*d\b|-squared\b))"
+    elif clean_term == "go":
+        # Disallow English colloquialisms: go-to, go to, go live, go-live, go market, go through
+        suffix = r"(?![a-zA-Z0-9])(?!(?:-to\b| to\b| live\b|-live\b| market\b| through\b))"
+    elif clean_term.endswith("+"):
+        suffix = r"(?![+a-zA-Z0-9])"
+    elif clean_term.endswith("#"):
+        suffix = r"(?![#a-zA-Z0-9])"
+
+    return f"{prefix}{escaped}{suffix}"
+
+
+def _build_alias_lookup():
+    """
+    Builds a bidirectional map of canonical skills to all equivalent forms/aliases.
+    e.g. 'kubernetes' -> {'kubernetes', 'k8s', 'k8'}
+         'scikit-learn' -> {'scikit-learn', 'sklearn'}
+         'aws' -> {'aws', 'amazon web services'}
+         'go' -> {'go', 'golang'}
+    """
+    lookup = {}
+    for alias, canonical in TERM_CANONICAL_MAP.items():
+        canonical_clean = canonical.strip().lower()
+        alias_clean = alias.strip().lower()
+        lookup.setdefault(canonical_clean, set()).add(canonical_clean)
+        lookup[canonical_clean].add(alias_clean)
+        lookup.setdefault(alias_clean, set()).add(canonical_clean)
+        lookup[alias_clean].add(alias_clean)
+    return lookup
+
+
+SKILL_ALIASES = _build_alias_lookup()
+
+
+def _skill_in_text(skill: str, text: str) -> bool:
+    """
+    Checks if a skill or any of its canonical aliases is present in text
+    using boundary-safe matching.
+    """
+    if not skill or not text:
+        return False
+    lower_text = text.lower()
+    canonical = canonicalize_skill(skill)
+    variants = SKILL_ALIASES.get(canonical, {canonical, skill.strip().lower()})
+    for variant in variants:
+        pattern = _build_boundary_pattern(variant)
+        if re.search(pattern, lower_text):
+            return True
+    return False
+
+
 def _extract_job_keywords(job_description):
-    stopwords = {
-        "about", "after", "and", "are", "as", "at", "be", "been", "being", "but", "by",
-        "can", "candidate", "for", "from", "have", "in", "into", "is", "it", "its", "job",
-        "must", "of", "on", "or", "our", "per", "role", "should", "the", "their", "this",
-        "to", "with", "will", "you", "your", "years", "work", "working", "experience",
-        "responsibilities", "requirements", "required", "preferred", "including", "strong",
-    }
+    """
+    Extracts distinct technical skills and keywords from a job description
+    using curated role taxonomy and conservative term matching.
+    Returns each canonical skill only once, even if multiple aliases occur.
+    Does NOT construct arbitrary, noisy multiword n-grams.
+    """
+    if not job_description or not job_description.strip():
+        return []
+
     lower_jd = job_description.lower()
-    candidates = []
+
+    # 1. Build prioritized search vocabulary from taxonomy and tech terms
+    curated_vocab = set()
     for role_data in JOB_TAXONOMY.values():
         for term in role_data["skills"] + role_data["keywords"]:
-            if re.search(rf"(?<!\w){re.escape(term)}(?!\w)", lower_jd) and term not in candidates:
-                candidates.append(term)
+            curated_vocab.add(term.strip().lower())
+    for term in ADDITIONAL_TECH_TERMS:
+        curated_vocab.add(term.strip().lower())
+    for alias in TERM_CANONICAL_MAP:
+        curated_vocab.add(alias.strip().lower())
 
-    tokens = re.findall(r"[a-z][a-z0-9+#.-]*", lower_jd)
-    discovered = []
-    for size in (3, 2, 1):
-        for start in range(len(tokens) - size + 1):
-            phrase_tokens = tokens[start:start + size]
-            if any(token in stopwords for token in phrase_tokens):
-                continue
-            if size == 1 and len(phrase_tokens[0]) < 3 and phrase_tokens[0] not in {"r", "go", "c++", "c#"}:
-                continue
-            phrase = " ".join(phrase_tokens)
-            if phrase not in candidates and phrase not in discovered:
-                discovered.append(phrase)
-    return (candidates + discovered)[:25]
+    # Sort multiword phrases first so more specific terms are matched
+    sorted_terms = sorted(curated_vocab, key=lambda t: (-len(t.split()), -len(t)))
+
+    extracted = []
+    seen_canonical = set()
+
+    for term in sorted_terms:
+        pattern = _build_boundary_pattern(term)
+        if re.search(pattern, lower_jd):
+            canonical = canonicalize_skill(term)
+            if canonical not in seen_canonical:
+                seen_canonical.add(canonical)
+                extracted.append(canonical)
+
+    # 2. Check for capitalized technical acronyms (e.g. 'API', 'ETL', 'SQL')
+    acronyms = re.findall(r"\b[A-Z]{2,6}\b", job_description)
+    for ac in acronyms:
+        ac_lower = ac.lower()
+        if ac_lower in KNOWN_TECH_ACRONYMS:
+            canonical = canonicalize_skill(ac_lower)
+            if canonical not in seen_canonical:
+                seen_canonical.add(canonical)
+                extracted.append(canonical)
+
+    return extracted[:25]
 
 
 def analyze_job_description(resume_text, job_description):
     """Compare resume text with rule-extracted terms from a pasted job description."""
     if not job_description or not job_description.strip():
-        return {"available": False, "score": None, "matched_terms": [], "missing_terms": []}
+        return {
+            "available": False,
+            "score": None,
+            "matched_terms": [],
+            "missing_terms": [],
+            "terms_analyzed": 0,
+            "terms_analyzed_list": [],
+            "notice": "No job description was provided.",
+        }
 
     terms = _extract_job_keywords(job_description)
-    lower_resume = resume_text.lower()
     matched_terms = [
         term for term in terms
-        if re.search(rf"(?<!\w){re.escape(term)}(?!\w)", lower_resume)
+        if _skill_in_text(term, resume_text)
     ]
     missing_terms = [term for term in terms if term not in matched_terms]
-    score = int(len(matched_terms) / len(terms) * 100) if terms else 0
+
+    if len(terms) < 3:
+        return {
+            "available": True,
+            "score": None,
+            "matched_terms": matched_terms,
+            "missing_terms": missing_terms,
+            "terms_analyzed": len(terms),
+            "terms_analyzed_list": terms,
+            "notice": (
+                "Fewer than 3 distinct technical skills or requirements were identified in the job description. "
+                "Paste a more detailed job description containing specific technical qualifications for an accurate match percentage."
+            ),
+        }
+
+    score = int(round((len(matched_terms) / len(terms)) * 100))
     return {
         "available": True,
         "score": score,
         "matched_terms": matched_terms,
         "missing_terms": missing_terms,
         "terms_analyzed": len(terms),
+        "terms_analyzed_list": terms,
+        "notice": None,
     }
 
 
-def analyze_job_description_with_gemini(resume_text, job_description):
-    """Score resume evidence against a job description and return targeted feedback."""
-    if not resume_text.strip() or not job_description.strip():
-        raise ValueError("Provide both resume text and a job description for AI analysis.")
+def analyze_job_description_local(resume_text, job_description, target_role=""):
+    """Score resume evidence against a job description using local TF-IDF and NLP analysis."""
+    return local_engine.analyze_job_fit(resume_text, job_description, target_role=target_role)
 
-    model_name, model = create_gemini_model()
-    response = model.generate_content(
-        "You are an evidence-based resume reviewer. Compare the resume to the job description. "
-        "Only count skills and experience supported by the resume; do not infer or invent qualifications. "
-        "Return one JSON object with score (integer 0-100), matched_terms (array of terms evidenced "
-        "in the resume), missing_terms (array of important job requirements not evidenced), and "
-        "feedback (array of 3-5 concise, specific recommendations).\n\n"
-        f"Job description:\n{job_description}\n\nResume:\n{resume_text}",
-        generation_config={
-            "temperature": 0.2,
-            "max_output_tokens": 800,
-            "response_mime_type": "application/json",
-        },
-    )
-    content = (response.text or "").strip()
-    if not content:
-        raise ValueError("Gemini returned an empty job-description analysis.")
 
-    result = json.loads(content)
-    score = result.get("score")
-    if isinstance(score, bool) or not isinstance(score, (int, float)):
-        raise ValueError("Gemini returned an invalid job-match score.")
-    if not isinstance(result.get("matched_terms"), list) or not isinstance(result.get("missing_terms"), list):
-        raise ValueError("Gemini returned invalid matched or missing terms.")
-    if not isinstance(result.get("feedback"), list):
-        raise ValueError("Gemini returned invalid job-match feedback.")
-
-    return {
-        "score": max(0, min(100, round(score))),
-        "matched_terms": [str(term).strip() for term in result["matched_terms"] if str(term).strip()],
-        "missing_terms": [str(term).strip() for term in result["missing_terms"] if str(term).strip()],
-        "feedback": [str(item).strip() for item in result["feedback"] if str(item).strip()],
-        "model": model_name,
-    }
+# Backward compatibility alias
+analyze_job_description_with_gemini = analyze_job_description_local
 
 
 def analyze_bullets(text):
@@ -218,13 +410,13 @@ def analyze_bullets(text):
     )
     suggestions = []
     if not bullet_lines:
-        suggestions.append("Format experience and project achievements as concise bullet points.")
-    if bullet_lines and action_count < len(bullet_lines):
-        suggestions.append("Start each achievement with a specific action verb.")
-    if bullet_lines and quantified_count < len(bullet_lines):
-        suggestions.append("Add measurable outcomes, such as time saved, volume, revenue, or percentages.")
+        suggestions.append("Bullet formatting check: Format experience and project achievements as concise bullet points.")
+    if bullet_lines and action_count == 0:
+        suggestions.append("Action verb check: No strong action verbs were detected starting your bullet points. If applicable, begin achievements with active verbs (e.g., 'Developed', 'Managed').")
+    if bullet_lines and quantified_count == 0:
+        suggestions.append("Measurable outcomes check: No quantitative metrics were detected in your bullet points. If your projects yielded measurable results (%, $, counts), consider adding them.")
     if weak_count:
-        suggestions.append("Replace passive openers like 'Responsible for' or 'Helped' with direct ownership and impact.")
+        suggestions.append("Weak opener check: Detected passive phrasing like 'Responsible for' or 'Helped'. Replacing these with direct action verbs clarifies ownership.")
     return {
         "bullet_count": len(bullet_lines),
         "action_oriented_count": action_count,
@@ -237,11 +429,16 @@ def analyze_bullets(text):
 def check_grammar(text):
     """Flag common grammar patterns locally; this is not a full proofreader."""
     findings = []
-    repeated_words = re.finditer(r"\b([A-Za-z]{2,})\s+\1\b", text, re.I)
-    findings.extend(
-        f"Repeated word '{match.group(1)}': remove the duplicate."
-        for match in repeated_words
-    )
+    # Only flag adjacent duplicates on the same line separated by horizontal whitespace (e.g. 'the the').
+    # Do NOT flag words that naturally reoccur across different lines, bullets, or paragraphs.
+    repeated_words = re.finditer(r"\b([A-Za-z]{2,})[ \t]+\1\b", text, re.I)
+    seen_duplicates = set()
+    for match in repeated_words:
+        word_lower = match.group(1).lower()
+        if word_lower not in seen_duplicates:
+            seen_duplicates.add(word_lower)
+            findings.append(f"Adjacent duplicate word '{match.group(1)}': check for accidental duplication.")
+
     patterns = (
         (r"\bresponsible of\b", "Use 'responsible for' instead of 'responsible of'."),
         (r"\b(?:I|we|they|you)\s+(?:has|was)\b", "Check subject-verb agreement (for example, 'we were' or 'they have')."),
@@ -263,15 +460,15 @@ def check_formatting(text, missing_sections=None):
     phone_found = bool(re.search(r"(?<!\w)\+?\d[\d().\s-]{6,}\d(?!\w)", text))
     issues = []
     if not email_found:
-        issues.append("Add a clearly labeled email address to the contact section.")
+        issues.append("Contact details check: No email address was detected during text extraction. If already present in a header/footer or graphic, ensure it appears in selectable body text.")
     if not phone_found:
-        issues.append("Add a phone number using a standard, readable format.")
+        issues.append("Contact details check: No phone number was detected during text extraction. If present, verify readable standard numeric formatting.")
     if long_lines:
-        issues.append(f"Break up {len(long_lines)} unusually long line(s) to improve readability and text extraction.")
+        issues.append(f"Line length check: Detected {len(long_lines)} unusually long line(s) (>120 chars); breaking them into standard lines helps text extraction.")
     if len(bullet_markers) > 1:
-        issues.append("Use one consistent bullet marker throughout the resume.")
+        issues.append("Bullet consistency check: Multiple bullet styles detected. Using one consistent marker improves parsing reliability.")
     if missing_sections:
-        issues.append(f"Add clearly labeled sections for: {', '.join(missing_sections)}.")
+        issues.append(f"Section heading check: Standard headings for {', '.join(missing_sections)} were not detected during text extraction. If already present, standardizing heading titles ensures ATS parsers recognize them.")
     return {
         "email_found": email_found,
         "phone_found": phone_found,
@@ -281,9 +478,12 @@ def check_formatting(text, missing_sections=None):
     }
 
 
-def analyze_resume(text, target_role=None, pasted_jd=None):
+def analyze_resume(text, target_role=None, pasted_jd=None, target_source_name=None):
     """
     Performs section auditing, keyword gap analysis, and weighted ATS scoring.
+    Prioritizes a pasted job description's recognized skills for the 40-point
+    role-fit component when available (with >= 3 recognized skills).
+    Otherwise falls back to the selected target_role preset.
     """
     lower_text = text.lower()
     sections_found = {}
@@ -295,22 +495,56 @@ def analyze_resume(text, target_role=None, pasted_jd=None):
             missing_sections.append(sec)
     section_score = int(((len(EXPECTED_SECTIONS) - len(missing_sections)) / len(EXPECTED_SECTIONS)) * 30)
 
+    # 1. Determine target skills for the 40-point role fit
+    jd_skills = _extract_job_keywords(pasted_jd) if pasted_jd and pasted_jd.strip() else []
+    using_jd_target = False
+    jd_fallback_notice = None
+
+    if pasted_jd and pasted_jd.strip():
+        if len(jd_skills) >= 3:
+            using_jd_target = True
+            target_skills = jd_skills
+            role_fit_source = target_source_name or "Job Description"
+            role_fit_target_name = target_source_name or f"Job Description ({len(jd_skills)} recognized skills)"
+        else:
+            using_jd_target = False
+            jd_fallback_notice = (
+                "JD-based role fit is unavailable because fewer than 3 recognized skills were found "
+                "in the job description. The 40-point role fit score has fallen back to the selected preset taxonomy."
+            )
+            role_fit_source = f"Preset: {target_role} (Fallback: JD contained fewer than 3 recognized skills)"
+            target_skills = JOB_TAXONOMY.get(target_role, {}).get("skills", [])
+            role_fit_target_name = f"Preset: {target_role}" if target_role else "Preset"
+    else:
+        role_fit_source = f"Preset: {target_role}" if target_role else "Default Taxonomy"
+        target_skills = JOB_TAXONOMY.get(target_role, {}).get("skills", [])
+        role_fit_target_name = f"Preset: {target_role}" if target_role else "Default"
+
+    # Normalize target skills to unique canonical forms
+    canonical_target_skills = []
+    seen_targets = set()
+    for s in target_skills:
+        c = canonicalize_skill(s)
+        if c not in seen_targets:
+            seen_targets.add(c)
+            canonical_target_skills.append(c)
+
     matched_skills = []
     missing_skills = []
-    if target_role and target_role in JOB_TAXONOMY:
-        expected_skills = JOB_TAXONOMY[target_role]["skills"]
-        for skill in expected_skills:
-            if re.search(rf"\b{re.escape(skill)}\b", lower_text):
+    if canonical_target_skills:
+        for skill in canonical_target_skills:
+            if _skill_in_text(skill, lower_text):
                 matched_skills.append(skill)
             else:
                 missing_skills.append(skill)
-        match_rate = len(matched_skills) / len(expected_skills) if expected_skills else 0
-        role_score = int(match_rate * 40)
+        match_rate = len(matched_skills) / len(canonical_target_skills)
+        role_score = int(round(match_rate * 40))
     else:
         role_score = 25
 
-    expected_keywords = JOB_TAXONOMY.get(target_role, {}).get("keywords", [])
-    matched_keywords = [keyword for keyword in expected_keywords if re.search(rf"\b{re.escape(keyword)}\b", lower_text)]
+    # Role keywords for preset (if preset is in use)
+    expected_keywords = JOB_TAXONOMY.get(target_role, {}).get("keywords", []) if not using_jd_target else []
+    matched_keywords = [keyword for keyword in expected_keywords if _skill_in_text(keyword, lower_text)]
     missing_keywords = [keyword for keyword in expected_keywords if keyword not in matched_keywords]
 
     verbs = ["developed", "led", "managed", "designed", "engineered", "built", "spearheaded", "optimized", "increased", "reduced"]
@@ -331,14 +565,37 @@ def analyze_resume(text, target_role=None, pasted_jd=None):
     grammar_analysis = check_grammar(text)
     formatting_analysis = check_formatting(text, missing_sections)
 
+    score_breakdown = {
+        "role_score": role_score,
+        "role_max": 40,
+        "section_score": section_score,
+        "section_max": 30,
+        "impact_score": impact_score,
+        "impact_max": 15,
+        "length_score": length_score,
+        "length_max": 15,
+        "total_score": total_score,
+        "word_count": words,
+        "role_fit_source": role_fit_source,
+        "evaluation_type": "Deterministic Keyword/Text Alignment (Heuristic)",
+        "disclaimer": "Scores represent local heuristic keyword/text alignment, not a guaranteed ATS score or semantic understanding.",
+        "formula": f"{role_score}/40 (Role Fit) + {section_score}/30 (Sections) + {impact_score}/15 (Impact) + {length_score}/15 (Length) = {total_score}/100",
+    }
+
     return {
         "total_score": total_score,
         "section_score": section_score,
         "role_score": role_score,
         "impact_score": impact_score,
         "length_score": length_score,
+        "score_breakdown": score_breakdown,
         "matched_skills": matched_skills,
         "missing_skills": missing_skills,
+        "analyzed_skills": canonical_target_skills,
+        "role_fit_source": role_fit_source,
+        "role_fit_target_name": role_fit_target_name,
+        "using_jd_target": using_jd_target,
+        "jd_fallback_notice": jd_fallback_notice,
         "matched_keywords": matched_keywords,
         "missing_keywords": missing_keywords,
         "missing_sections": missing_sections,
@@ -349,22 +606,39 @@ def analyze_resume(text, target_role=None, pasted_jd=None):
         "formatting_analysis": formatting_analysis,
     }
 
+
 def generate_suggestions(results, target_role):
-    """Produces structured improvement recommendations."""
+    """Produces structured, evidence-based improvement recommendations."""
     tips = []
-    if results["missing_sections"]:
-        tips.append(f"**Add Key Sections:** Missing `{', '.join(results['missing_sections'])}`.")
-    if results["missing_skills"]:
+    if results.get("missing_sections"):
+        missing_sec_str = ", ".join(results["missing_sections"])
+        tips.append(
+            f"**Section Heading Check:** Standard headings for `{missing_sec_str}` were not detected during text extraction. "
+            f"If these sections already exist under custom titles or multi-column layouts, standardizing their headings ensures parser recognition."
+        )
+    if results.get("missing_skills"):
         sample_missing = ", ".join(results["missing_skills"][:5])
-        tips.append(f"**Add High-Demand Keywords for {target_role}:** Consider integrating `{sample_missing}`.")
-    if results["impact_score"] < 12:
-        tips.append("**Add Quantifiable Impact:** Use more strong action verbs (e.g., *Spearheaded*, *Optimized*) and include measurable numerical results (%, $, counts).")
-    if results["length_score"] < 15:
-        tips.append(f"**Adjust Length:** Your resume contains {results['word_count']} words. The recommended ATS range is 400–800 words.")
+        source_label = results.get("role_fit_source", target_role)
+        tips.append(
+            f"**Skill Gap Analysis ({source_label}):** If you have hands-on experience with `{sample_missing}`, consider highlighting it. "
+            f"(Only include skills you actually possess; do not claim unfamiliar tools.)"
+        )
+    if results.get("impact_score", 0) < 12 and results.get("bullet_analysis", {}).get("quantified_count", 0) == 0:
+        tips.append(
+            "**Quantifiable Outcomes Check:** No numerical metrics were detected in your bullet points. "
+            "If your projects produced measurable results (percentages, dollar amounts, volume, scale), consider including them."
+        )
+    if results.get("length_score", 0) < 15:
+        tips.append(
+            f"**Length Check:** Your resume contains {results['word_count']} words. The recommended ATS range is 400–800 words."
+        )
     jd_analysis = results.get("jd_analysis", {})
-    if jd_analysis.get("available") and jd_analysis.get("missing_terms"):
+    if jd_analysis.get("available") and jd_analysis.get("missing_terms") and not results.get("using_jd_target"):
         terms = ", ".join(jd_analysis["missing_terms"][:5])
-        tips.append(f"**Improve JD Match:** Add relevant evidence for `{terms}` where it accurately reflects your experience.")
+        tips.append(
+            f"**Job Description Keyword Review:** If your background includes authentic experience with `{terms}`, "
+            f"consider highlighting it in your bullets where it accurately reflects your work. (Do not add requirements you do not have.)"
+        )
     tips.extend(f"**Bullet Analysis:** {suggestion}" for suggestion in results.get("bullet_analysis", {}).get("suggestions", []))
     tips.extend(f"**Grammar Check:** {finding}" for finding in results.get("grammar_analysis", {}).get("findings", []))
     tips.extend(f"**Formatting Check:** {issue}" for issue in results.get("formatting_analysis", {}).get("issues", []))

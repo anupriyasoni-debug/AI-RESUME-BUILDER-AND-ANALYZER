@@ -17,7 +17,7 @@ from pdf_generator import (
     render_pdf_to_thumbnail,
     PDF_PALETTES_HEX,
 )
-from gemini_client import create_gemini_model
+from local_model import local_engine
 
 
 TEMPLATE_OPTIONS = [
@@ -31,7 +31,23 @@ TEMPLATE_OPTIONS = [
     "Executive Layout",
     "Tech / Developer Layout",
     "Minimalist Layout",
+    "Academic / Research Layout",
+    "ATS Classic Single Column",
+    "Data / Analytics Layout",
 ]
+FONT_OPTIONS = {
+    "Helvetica (clean sans)": "Helvetica",
+    "Arial": "Arial",
+    "Calibri": "Calibri",
+    "Segoe UI": "SegoeUI",
+    "Georgia": "Georgia",
+    "Verdana": "Verdana",
+    "Times New Roman": "TimesNewRoman",
+    "Consolas (monospace)": "Consolas",
+    "Trebuchet MS": "Trebuchet",
+    "Times (classic serif)": "Times",
+    "Courier (monospace)": "Courier",
+}
 TEMPLATE_PREVIEWS = [
     {
         "name": "Two-Column Sidebar Layout",
@@ -93,6 +109,24 @@ TEMPLATE_PREVIEWS = [
         "structure": "Summary, experience, projects, education, skills, certifications.",
         "best_for": "Design-conscious professionals and modern ATS submissions.",
     },
+    {
+        "name": "Academic / Research Layout",
+        "style": "Formal, publication-friendly hierarchy that places education and research projects first.",
+        "structure": "Education, summary, projects, experience, skills, certifications.",
+        "best_for": "Researchers, students, faculty, and graduate applications.",
+    },
+    {
+        "name": "ATS Classic Single Column",
+        "style": "A straightforward single-column format with conventional headings and restrained accents.",
+        "structure": "Summary, experience, skills, education, projects, certifications.",
+        "best_for": "General applications and conservative ATS workflows.",
+    },
+    {
+        "name": "Data / Analytics Layout",
+        "style": "Skills and project work lead, making tools and analytical deliverables easy to scan.",
+        "structure": "Summary, skills, projects, experience, education, certifications.",
+        "best_for": "Data analysts, BI professionals, and quantitative roles.",
+    },
 ]
 COLOR_OPTIONS = list(COLOR_PALETTES)
 COLOR_PALETTE_SWATCHES = {
@@ -125,6 +159,9 @@ TEMPLATE_SECTIONS = {
     "Creative / Bold Header Layout": ("SUMMARY", "SKILLS", "EXPERIENCE", "PROJECTS", "EDUCATION", "CERTIFICATIONS"),
     "Compact / Single-Page Layout": ("SUMMARY", "EXPERIENCE", "PROJECTS", "EDUCATION", "SKILLS", "CERTIFICATIONS"),
     "Elegant / Corporate Layout": ("SUMMARY", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS", "CERTIFICATIONS"),
+    "Academic / Research Layout": ("EDUCATION", "SUMMARY", "PROJECTS", "EXPERIENCE", "SKILLS", "CERTIFICATIONS"),
+    "ATS Classic Single Column": ("SUMMARY", "EXPERIENCE", "SKILLS", "EDUCATION", "PROJECTS", "CERTIFICATIONS"),
+    "Data / Analytics Layout": ("SUMMARY", "SKILLS", "PROJECTS", "EXPERIENCE", "EDUCATION", "CERTIFICATIONS"),
 }
 AI_REWRITE_MODES = [
     "Improve",
@@ -134,10 +171,17 @@ AI_REWRITE_MODES = [
     "Fix grammar",
     "ATS optimize",
 ]
-DATABASE_PATH = Path(__file__).with_name("resumes.db")
+APP_DATA_DIRECTORY = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "Resumer Studio"
+DATABASE_PATH = APP_DATA_DIRECTORY / "resumes.db"
+LEGACY_DATABASE_PATH = Path(__file__).with_name("resumes.db")
 
 
 def _initialise_resume_database():
+    APP_DATA_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    if not DATABASE_PATH.exists() and LEGACY_DATABASE_PATH.exists():
+        legacy_uri = f"{LEGACY_DATABASE_PATH.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(legacy_uri, uri=True) as source, sqlite3.connect(DATABASE_PATH) as destination:
+            source.backup(destination)
     with sqlite3.connect(DATABASE_PATH) as connection:
         connection.execute(
             """
@@ -163,17 +207,20 @@ def _list_resume_versions():
             ORDER BY rowid
             """
         ).fetchall()
-    return [
-        {
+    versions = []
+    for row in rows:
+        data = json.loads(row[5])
+        font_family = data.pop("_resume_font_family", "Helvetica")
+        versions.append({
             "id": row[0],
             "name": row[1],
             "saved_at": row[2],
             "template": row[3],
             "color_scheme": row[4],
-            "data": json.loads(row[5]),
-        }
-        for row in rows
-    ]
+            "data": data,
+            "font_family": font_family,
+        })
+    return versions
 
 
 def _save_resume_version(version):
@@ -190,7 +237,7 @@ def _save_resume_version(version):
                 version["saved_at"],
                 version["template"],
                 version["color_scheme"],
-                json.dumps(version["data"]),
+                json.dumps({**version["data"], "_resume_font_family": version.get("font_family", "Helvetica")}),
             ),
         )
 
@@ -208,13 +255,16 @@ def _get_resume_version(version_id):
         ).fetchone()
     if row is None:
         return None
+    data = json.loads(row[5])
+    font_family = data.pop("_resume_font_family", "Helvetica")
     return {
         "id": row[0],
         "name": row[1],
         "saved_at": row[2],
         "template": row[3],
         "color_scheme": row[4],
-        "data": json.loads(row[5]),
+        "data": data,
+        "font_family": font_family,
     }
 
 
@@ -321,6 +371,9 @@ TEMPLATE_HTML_RENDERERS = {
     "Creative / Bold Header Layout": _creative_html_preview,
     "Compact / Single-Page Layout": _compact_html_preview,
     "Elegant / Corporate Layout": _corporate_html_preview,
+    "Academic / Research Layout": _executive_html_preview,
+    "ATS Classic Single Column": _clean_html_preview,
+    "Data / Analytics Layout": _corporate_html_preview,
 }
 
 
@@ -393,13 +446,13 @@ def _prepare_preview_data(data: dict) -> dict:
 
 
 @st.cache_data(show_spinner=False)
-def get_cached_thumbnail(resume_data_json: str, template: str, color_scheme: str) -> bytes:
+def get_cached_thumbnail(resume_data_json: str, template: str, color_scheme: str, font_family: str = "Helvetica") -> bytes:
     try:
         data = json.loads(resume_data_json) if isinstance(resume_data_json, str) else (resume_data_json or {})
     except Exception:
         data = {}
     display_data = _prepare_preview_data(data)
-    pdf_bytes = generate_resume_pdf(display_data, template=template, color_scheme=color_scheme)
+    pdf_bytes = generate_resume_pdf(display_data, template=template, color_scheme=color_scheme, font_family=font_family)
     return render_pdf_to_thumbnail(pdf_bytes, dpi=115)
 
 
@@ -407,22 +460,25 @@ generate_cached_thumbnail = get_cached_thumbnail
 
 
 
-def _gemini_error_message(exc, feature):
-    error_text = str(exc).lower()
-    status_code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
-    error_type = type(exc).__name__.lower()
-    if (
-        status_code == 429
-        or "429" in error_text
-        or "quota" in error_text
-        or "rate limit" in error_text
-        or "resourceexhausted" in error_type
-    ):
-        return (
-            f"Gemini {feature} is temporarily unavailable because the API rate limit or quota "
-            "was reached. Please wait a moment and try again, or check your Gemini usage and billing settings."
-        )
-    return f"Gemini {feature} failed ({type(exc).__name__}). Check your API configuration and try again."
+def _local_error_message(exc, feature):
+    return f"Local {feature} notice: {exc}"
+
+
+_gemini_error_message = _local_error_message
+
+
+def _apply_bullet_choice(text_key, selected_bullet_idx, bullet_prefix, new_text, status_key, choice_name):
+    state = st.session_state
+    text = state.get(text_key, "")
+    lines = text.splitlines()
+    nonempty_indexes = [i for i, line in enumerate(lines) if line.strip()]
+    if 0 <= selected_bullet_idx < len(nonempty_indexes):
+        target_line_idx = nonempty_indexes[selected_bullet_idx]
+        lines[target_line_idx] = f"{bullet_prefix}{new_text}"
+        # Streamlit only allows widget-state updates before the widget is rendered.
+        pending = state.setdefault("_pending_resume_widget_updates", {})
+        pending[text_key] = "\n".join(lines)
+        state[status_key] = ("success", f"Updated bullet with {choice_name} version.")
 
 
 def _rewrite_selected_bullet(text_key, selection_key, mode_key, status_key, context_keys):
@@ -441,14 +497,7 @@ def _rewrite_selected_bullet(text_key, selection_key, mode_key, status_key, cont
     bullet_prefix = prefix_match.group(1) if prefix_match else ""
     original_bullet = prefix_match.group(2) if prefix_match else selected_line.strip()
     mode = state.get(mode_key, AI_REWRITE_MODES[0])
-    instructions = {
-        "Improve": "Improve clarity, specificity, and flow while preserving the original meaning.",
-        "Make concise": "Make the bullet more concise while preserving its most important facts and outcomes.",
-        "Make professional": "Rewrite the bullet in polished, professional resume language.",
-        "Add impact": "Emphasize ownership, scale, and measurable outcomes when the source provides evidence. Never invent metrics or accomplishments; if no metric is supplied, strengthen the stated impact without adding numbers.",
-        "Fix grammar": "Correct grammar, spelling, and punctuation while preserving the original meaning.",
-        "ATS optimize": "Use relevant role and technology terms naturally without keyword stuffing or unsupported claims.",
-    }
+
     context = [
         state.get(key, "").strip()
         for key in context_keys
@@ -456,64 +505,124 @@ def _rewrite_selected_bullet(text_key, selection_key, mode_key, status_key, cont
     ]
 
     try:
-        _, model = create_gemini_model()
-        response = model.generate_content(
-            "You are a resume bullet editor. Return only one complete rewritten bullet, without commentary. "
-            "Preserve the user's facts, tools, scope, and meaning. Never invent employers, skills, "
-            "responsibilities, outcomes, or numbers. Finish all sentences cleanly and never stop "
-            "mid-sentence or return a fragment.\n\n"
-            f"Mode: {mode}. {instructions[mode]}\n"
-            f"Context: {'; '.join(context) if context else 'Resume bullet'}\n"
-            f"Bullet to rewrite:\n{original_bullet}",
-            generation_config={"temperature": 0.2, "max_output_tokens": 500},
-        )
-        improved_bullet = (response.text or "").strip()
+        improved_bullet = local_engine.rewrite_bullet(original_bullet, mode=mode, context=context)
         if not improved_bullet:
-            state[status_key] = ("error", "Gemini returned no rewritten bullet. Try again.")
+            state[status_key] = ("error", "Could not safely rewrite the selected bullet. Original preserved.")
             return
-        generated_prefix = re.match(r"^\s*(?:[-*•▪◦]|\d+[.)])\s+(.*)$", improved_bullet)
-        if generated_prefix:
-            improved_bullet = generated_prefix.group(1)
         lines[selected_line_index] = f"{bullet_prefix}{improved_bullet}"
-        state[text_key] = "\n".join(lines)
-        state[status_key] = ("success", f"Selected bullet updated with mode: {mode}.")
+        pending = state.setdefault("_pending_resume_widget_updates", {})
+        pending[text_key] = "\n".join(lines)
+        state[status_key] = ("success", f"Selected bullet updated locally with mode: {mode}.")
     except Exception as exc:
         state[status_key] = (
             "error",
-            _gemini_error_message(exc, "bullet enhancement"),
+            f"Bullet enhancement failed: {exc}",
         )
 
 
 def _render_bullet_ai_controls(text_key, key_prefix, context_keys=()):
     state = st.session_state
     selection_key = f"{key_prefix}_ai_bullet_index"
-    mode_key = f"{key_prefix}_ai_mode"
+    suggestions_key = f"{key_prefix}_bullet_suggestions"
     status_key = f"{key_prefix}_ai_status"
     bullets = [line.strip() for line in state.get(text_key, "").splitlines() if line.strip()]
     selected_position = state.get(selection_key)
     if not isinstance(selected_position, int) or not 0 <= selected_position < len(bullets):
         state[selection_key] = 0
 
-    st.markdown("**AI Assistant**")
-    selection_column, mode_column, action_column = st.columns([3, 2, 1])
+    st.markdown("**Local Bullet Assistant (Conservative)**")
+    st.caption(
+        "Rule-based checks compare wording structure only; they cannot verify meaning or facts. "
+        "Review each option, and edit manually when no safe wording change is available."
+    )
+    selection_column, action_column = st.columns([4, 2])
     with selection_column:
-        st.selectbox(
-            "Select bullet to improve",
+        selected_idx = st.selectbox(
+            "Select bullet to review",
             options=range(len(bullets)),
             format_func=lambda index: bullets[index][:90],
             key=selection_key,
             disabled=not bullets,
         )
-    with mode_column:
-        st.selectbox("Enhancement mode", AI_REWRITE_MODES, key=mode_key)
     with action_column:
-        st.button(
-            "Improve with AI",
-            key=f"{key_prefix}_improve_ai",
+        generate_clicked = st.button(
+            "Generate 3 Alternatives",
+            key=f"{key_prefix}_gen_alts",
             disabled=not bullets,
-            on_click=_rewrite_selected_bullet,
-            args=(text_key, selection_key, mode_key, status_key, context_keys),
         )
+
+    context = [
+        state.get(key, "").strip()
+        for key in context_keys
+        if state.get(key, "").strip()
+    ]
+
+    if generate_clicked and bullets and 0 <= selected_idx < len(bullets):
+        selected_line = bullets[selected_idx]
+        prefix_match = re.match(r"^(\s*(?:[-*•▪◦]|\d+[.)])\s+)(.*)$", selected_line)
+        original_bullet = prefix_match.group(2) if prefix_match else selected_line.strip()
+        bullet_prefix = prefix_match.group(1) if prefix_match else ""
+        alts = local_engine.generate_bullet_alternatives(original_bullet, context=context)
+        state[suggestions_key] = {
+            "selected_idx": selected_idx,
+            "prefix": bullet_prefix,
+            "original": original_bullet,
+            "alternatives": alts,
+        }
+
+    active_suggestions = state.get(suggestions_key)
+    if active_suggestions and active_suggestions.get("selected_idx") == state.get(selection_key):
+        orig = active_suggestions["original"]
+        alts = active_suggestions["alternatives"]
+        pref = active_suggestions["prefix"]
+
+        st.markdown(f"**Current Bullet:** `{orig}`")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("**1. Professional**")
+            prof = alts["professional"]["text"]
+            if prof.strip() == orig.strip():
+                st.success("Already clear and correctly punctuated; no safe wording change was found.")
+            else:
+                st.info(prof)
+            st.caption(alts["professional"]["note"])
+            if st.button("Apply Professional", key=f"{key_prefix}_apply_prof", disabled=prof.strip() == orig.strip()):
+                _apply_bullet_choice(text_key, active_suggestions["selected_idx"], pref, prof, status_key, "Professional")
+                state.pop(suggestions_key, None)
+                st.rerun()
+
+        with col2:
+            st.markdown("**2. Concise**")
+            conc = alts["concise"]["text"]
+            if conc.strip() == orig.strip():
+                st.info("No safe, meaning-preserving shortening was found. Edit wording manually, then review it here.")
+            else:
+                st.info(conc)
+            st.caption(alts["concise"]["note"])
+            if st.button("Apply Concise", key=f"{key_prefix}_apply_conc", disabled=conc.strip() == orig.strip()):
+                _apply_bullet_choice(text_key, active_suggestions["selected_idx"], pref, conc, status_key, "Concise")
+                state.pop(suggestions_key, None)
+                st.rerun()
+
+        with col3:
+            st.markdown("**3. Impact-Focused**")
+            imp = alts["impact"]["text"]
+            has_metric = bool(re.search(r"(?:\$\s?\d|\b\d+(?:\.\d+)?\s?%|\b\d{2,}\b)", orig))
+            if not has_metric:
+                st.info("Add a real result: what changed, by how much, or at what scale? Do not estimate or invent a metric.")
+            elif imp.strip() == orig.strip():
+                st.success("No impact claim was added. The existing evidence is preserved exactly as written.")
+            else:
+                st.info(imp)
+            st.caption(alts["impact"]["note"])
+            if st.button("Apply Impact", key=f"{key_prefix}_apply_imp", disabled=(not has_metric or imp.strip() == orig.strip())):
+                _apply_bullet_choice(text_key, active_suggestions["selected_idx"], pref, imp, status_key, "Impact-Focused")
+                state.pop(suggestions_key, None)
+                st.rerun()
+
+        if st.button("Keep Original / Dismiss", key=f"{key_prefix}_dismiss_alts"):
+            state.pop(suggestions_key, None)
+            st.rerun()
 
     status = state.pop(status_key, None)
     if status:
@@ -548,26 +657,7 @@ def _live_writing_tip(text, section):
 
 
 def _request_writing_suggestions(text, section, context):
-    _, model = create_gemini_model()
-    response = model.generate_content(
-        "You are an intelligent, adaptive resume coach. First analyze the specific draft, section, "
-        "and context provided, then identify the highest-value improvements for this candidate. "
-        "Give three concise, specific, and varied suggestions that are clearly grounded in the "
-        "draft. Adapt your advice to the section: for example, focus on positioning and evidence "
-        "in a summary, ownership and measurable outcomes in experience, and clarity or technical "
-        "relevance in projects. Prioritize the issues that actually appear instead of repeating "
-        "generic advice or a fixed phrase. Do not rewrite the draft, invent facts, or suggest "
-        "unsupported metrics. Explain briefly what to improve and why. Return exactly three numbered "
-        "items, with each item written as one or two complete, grammatically correct sentences. "
-        "Finish every sentence before moving to the next item, and do not end with a fragment, "
-        "ellipsis, or unfinished suggestion.\n\n"
-        f"Section: {section}\nContext: {context or 'Not provided'}\nDraft:\n{text}",
-        generation_config={"temperature": 0.3, "max_output_tokens": 600},
-    )
-    suggestions = (response.text or "").strip()
-    if not suggestions:
-        raise ValueError("Gemini returned no writing suggestions. Try again.")
-    return suggestions
+    return local_engine.get_writing_suggestions(text, section, context)
 
 
 def _render_writing_assistant(text_key, key_prefix, section, context_keys=()):
@@ -579,11 +669,12 @@ def _render_writing_assistant(text_key, key_prefix, section, context_keys=()):
         if state.get(key, "").strip()
     )
     st.caption(f"Live writing tip: {_live_writing_tip(text, section)}")
+    st.caption("Offline writing guidance based on your draft and selected role; this is not a generative AI model.")
 
     result_key = f"{key_prefix}_writing_suggestions"
-    if st.button("Get AI suggestions", key=f"{key_prefix}_get_suggestions", disabled=not text.strip()):
+    if st.button("Get tailored writing guidance", key=f"{key_prefix}_get_suggestions", disabled=not text.strip()):
         try:
-            with st.spinner("Reviewing your draft..."):
+            with st.spinner("Reviewing your draft locally..."):
                 state[result_key] = {
                     "draft": text,
                     "context": context,
@@ -594,7 +685,7 @@ def _render_writing_assistant(text_key, key_prefix, section, context_keys=()):
             state[result_key] = {
                 "draft": text,
                 "context": context,
-                "error": _gemini_error_message(exc, "writing suggestions"),
+                "error": f"Writing suggestions notice: {exc}",
             }
 
     result = state.get(result_key)
@@ -607,12 +698,15 @@ def _render_writing_assistant(text_key, key_prefix, section, context_keys=()):
 
 def resume_builder_page():
     state = st.session_state
+    for widget_key, widget_value in state.pop("_pending_resume_widget_updates", {}).items():
+        state[widget_key] = widget_value
     state.setdefault("step", 1)
     state.setdefault("resume_data", {})
     state.setdefault("resume_template", TEMPLATE_OPTIONS[0])
     state.setdefault("selected_template", TEMPLATE_OPTIONS[0])
     state.setdefault("resume_color_scheme", COLOR_OPTIONS[0])
     state.setdefault("selected_color_scheme", COLOR_OPTIONS[0])
+    state.setdefault("resume_font_family", "Helvetica")
     state.setdefault("resume_pdf", None)
 
 
@@ -622,7 +716,7 @@ def resume_builder_page():
 
         data = {}
         container = st.container(border=True)
-        tabs = container.tabs(["👤 Personal", "🎓 Education", "💼 Experience", "🚀 Projects", "🛠️ Skills", "📜 Certifications"])
+        tabs = container.tabs(["👤 Personal", "🎓 Education", "💼 Experience", "🚀 Projects", "🛠️ Skills", "📜 Certifications", "➕ More details"])
 
         with tabs[0]:
             col1, col2 = st.columns(2)
@@ -631,15 +725,21 @@ def resume_builder_page():
                 data["email"] = st.text_input("Email", placeholder="mahak@example.com", key="builder_email")
                 data["phone"] = st.text_input("Phone Number", placeholder="+91 9876543210", key="builder_phone")
                 data["location"] = st.text_input("Location (City, Country)", key="builder_location")
+                data["headline"] = st.text_input("Professional Headline", placeholder="Information Security Analyst | SOC | Incident Response", key="builder_headline")
             with col2:
                 data["linkedin"] = st.text_input("LinkedIn / Portfolio URL", placeholder="linkedin.com/in/mahaksahu", key="builder_linkedin")
                 data["github"] = st.text_input("GitHub Profile URL", placeholder="github.com/mahaksahu", key="builder_github")
+                data["portfolio"] = st.text_input("Portfolio URL (optional)", key="builder_portfolio")
+                data["website"] = st.text_input("Personal Website (optional)", key="builder_website")
                 data["summary"] = st.text_area(
                     "Professional Summary", height=100,
                     placeholder="Results-driven engineering student specializing in Artificial Intelligence and scalable backend services.",
                     key="builder_summary",
                 )
-                _render_writing_assistant("builder_summary", "summary", "professional summary")
+                _render_writing_assistant(
+                    "builder_summary", "summary", "professional summary",
+                    context_keys=("builder_headline",),
+                )
 
         with tabs[1]:
             num_edu = st.number_input("Number of education entries", min_value=0, max_value=5, key="num_edu")
@@ -652,8 +752,14 @@ def resume_builder_page():
                     year = st.text_input("Year", key=f"edu_year_{i}")
                 with c2:
                     institute = st.text_input("Institute / University", key=f"edu_institute_{i}")
-                    score = st.text_input("Score / CGPA (optional)", key=f"edu_score_{i}")
-                education.append({"degree": degree, "institute": institute, "year": year, "score": score})
+                    field = st.text_input("Field of Study", key=f"edu_field_{i}")
+                c3, c4 = st.columns(2)
+                with c3:
+                    score = st.text_input("GPA / Score (optional)", key=f"edu_score_{i}")
+                with c4:
+                    edu_location = st.text_input("City / Country (optional)", key=f"edu_location_{i}")
+                edu_detail = st.text_area("Honors, coursework, or activities (optional)", key=f"edu_detail_{i}", height=70)
+                education.append({"degree": degree, "field": field, "institute": institute, "year": year, "score": score, "location": edu_location, "description": edu_detail})
                 if i < int(num_edu) - 1:
                     st.divider()
             data["education"] = education
@@ -668,8 +774,13 @@ def resume_builder_page():
                     role = st.text_input("Job Title", key=f"exp_role_{i}")
                 with c2:
                     company = st.text_input("Company", key=f"exp_company_{i}")
-                duration = st.text_input("Duration (e.g. Jan 2023 - Present)", key=f"exp_duration_{i}")
-                description = st.text_area("Description", key=f"exp_desc_{i}", height=80)
+                c3, c4 = st.columns(2)
+                with c3:
+                    duration = st.text_input("Duration (e.g. Jan 2023 - Present)", key=f"exp_duration_{i}")
+                with c4:
+                    employment_type = st.selectbox("Work type", ["", "Full-time", "Part-time", "Contract", "Internship", "Freelance"], key=f"exp_type_{i}")
+                location = st.text_input("Work location (optional)", key=f"exp_location_{i}")
+                description = st.text_area("Achievements and responsibilities", key=f"exp_desc_{i}", height=100, placeholder="Use one achievement per line. Add a metric only if it is accurate.")
                 _render_writing_assistant(
                     f"exp_desc_{i}",
                     f"exp_{i}",
@@ -681,7 +792,7 @@ def resume_builder_page():
                     f"exp_{i}",
                     context_keys=(f"exp_role_{i}", f"exp_company_{i}", f"exp_duration_{i}"),
                 )
-                experience.append({"role": role, "company": company, "duration": duration, "description": description})
+                experience.append({"role": role, "company": company, "duration": duration, "employment_type": employment_type, "location": location, "description": description})
                 if i < int(num_exp) - 1:
                     st.divider()
             data["experience"] = experience
@@ -692,14 +803,19 @@ def resume_builder_page():
             for i in range(int(num_proj)):
                 st.markdown(f"**Project #{i + 1}**")
                 title = st.text_input("Project Title", key=f"proj_title_{i}")
-                tech = st.text_input("Tech Stack Used", key=f"proj_tech_{i}")
-                description = st.text_area("Description", key=f"proj_desc_{i}", height=80)
+                tech = st.text_input("Tools / Skills Used", key=f"proj_tech_{i}")
+                c1, c2 = st.columns(2)
+                with c1:
+                    project_dates = st.text_input("Dates (optional)", key=f"proj_dates_{i}")
+                with c2:
+                    project_url = st.text_input("Project URL (optional)", key=f"proj_url_{i}")
+                description = st.text_area("What you built and the result", key=f"proj_desc_{i}", height=85)
                 _render_bullet_ai_controls(
                     f"proj_desc_{i}",
                     f"proj_{i}",
                     context_keys=(f"proj_title_{i}", f"proj_tech_{i}"),
                 )
-                projects.append({"title": title, "tech": tech, "description": description})
+                projects.append({"title": title, "tech": tech, "dates": project_dates, "url": project_url, "description": description})
                 if i < int(num_proj) - 1:
                     st.divider()
             data["projects"] = projects
@@ -716,8 +832,22 @@ def resume_builder_page():
                 st.markdown(f"<div style='margin-top:0.5rem;'>{badges}</div>", unsafe_allow_html=True)
 
         with tabs[5]:
-            cert_text = st.text_area("Certifications", height=100, key="builder_certifications")
-            data["certifications"] = [c.strip() for c in cert_text.split("\n") if c.strip()]
+            st.caption("Add certificates, licenses, or professional credentials; one per line.")
+            cert_text = st.text_area("Certifications", height=120, key="builder_certifications")
+            data["certifications"] = [c.strip() for c in cert_text.splitlines() if c.strip()]
+
+        with tabs[6]:
+            st.caption("All fields are optional. Leave out anything that does not strengthen your application.")
+            extra_columns = st.columns(2)
+            with extra_columns[0]:
+                data["languages"] = [line.strip() for line in st.text_area("Languages and proficiency (one per line)", height=100, key="builder_languages", placeholder="English — fluent\nHindi — native").splitlines() if line.strip()]
+                data["awards"] = [line.strip() for line in st.text_area("Awards and honors (one per line)", height=100, key="builder_awards").splitlines() if line.strip()]
+                data["achievements"] = [line.strip() for line in st.text_area("Selected achievements (one per line)", height=120, key="builder_achievements", placeholder="Recognition, measurable milestone, or notable contribution").splitlines() if line.strip()]
+                data["volunteer"] = [line.strip() for line in st.text_area("Volunteer experience (one per line)", height=100, key="builder_volunteer").splitlines() if line.strip()]
+            with extra_columns[1]:
+                data["extracurricular"] = [line.strip() for line in st.text_area("Extracurricular activities (one per line)", height=100, key="builder_extracurricular", placeholder="Clubs, student organizations, leadership, or community activities").splitlines() if line.strip()]
+                data["publications"] = [line.strip() for line in st.text_area("Publications, talks, or patents (one per line)", height=100, key="builder_publications").splitlines() if line.strip()]
+                data["interests"] = [item.strip() for item in st.text_area("Professional interests (comma-separated)", height=100, key="builder_interests").split(",") if item.strip()]
 
         _render_progress(data)
         if st.button("Next: Choose Template & Style", type="primary"):
@@ -737,8 +867,7 @@ def resume_builder_page():
 
         st.subheader("Choose Template & Style")
         st.markdown(
-            "Compare all template options dynamically populated with your actual resume content. "
-            "Changing the color scheme below instantly re-renders all live previews."
+            "Choose a layout, accent palette, and font. Live previews use your current resume details."
         )
 
         active_color = state.get("selected_color_scheme") or state.get("resume_color_scheme") or COLOR_OPTIONS[0]
@@ -746,13 +875,32 @@ def resume_builder_page():
             active_color = COLOR_OPTIONS[0]
         color_index = COLOR_OPTIONS.index(active_color)
 
-        st.markdown("#### 🎨 Color Scheme Palette")
-        selected_color = st.selectbox(
-            "Select Palette (instantly applies to all templates below):",
-            COLOR_OPTIONS,
-            index=color_index,
-            key="_resume_color_picker",
-        )
+        style_column, font_column = st.columns([1.15, 0.85], gap="large")
+        with style_column:
+            st.markdown("#### 🎨 Color scheme")
+            selected_color = st.selectbox(
+                "Choose an accent palette",
+                COLOR_OPTIONS,
+                index=color_index,
+                key="_resume_color_picker",
+            )
+        with font_column:
+            st.markdown("#### Aa Typography")
+            active_font = state.get("resume_font_family", "Helvetica")
+            font_labels = list(FONT_OPTIONS)
+            active_font_label = next((label for label, family in FONT_OPTIONS.items() if family == active_font), font_labels[0])
+            selected_font_label = st.selectbox(
+                "Choose a PDF font",
+                font_labels,
+                index=font_labels.index(active_font_label),
+                key="_resume_font_picker",
+                help="Font choice applies to every template and the downloaded PDF.",
+            )
+            selected_font = FONT_OPTIONS[selected_font_label]
+            if selected_font != active_font:
+                state.resume_font_family = selected_font
+                state.resume_pdf = None
+                st.rerun()
         if selected_color != active_color:
             state.resume_color_scheme = selected_color
             state.selected_color_scheme = selected_color
@@ -832,68 +980,58 @@ def resume_builder_page():
             unsafe_allow_html=True,
         )
 
-        st.markdown("### 📋 Template Layouts (Linear Comparison)")
-        st.caption("Each row below dynamically renders your actual resume content in the active colorway. Click **'Select This Template'** to choose a layout.")
+        st.markdown("### Choose a layout")
+        st.caption(f"{len(TEMPLATE_PREVIEWS)} layouts · previews reflect your resume, font, and color selections")
+        st.info("For job portals, prefer single-column layouts such as ATS Classic, Professional, or Minimalist. Two-column and creative designs are better for direct sharing.")
 
+        gallery_columns = st.columns(3, gap="large")
         for index, preview in enumerate(TEMPLATE_PREVIEWS):
             t_name = preview["name"]
-            is_active = (t_name == current_template)
+            is_active = t_name == current_template
             slug = t_name.lower().replace(" ", "_").replace("/", "").replace("-", "_")
-
-            with st.container(border=True):
-                col_preview, col_details = st.columns([1, 1.2], gap="large")
-
-                with col_preview:
-                    with st.spinner(f"Rendering {t_name}..."):
-                        try:
+            with gallery_columns[index % 3]:
+                with st.container(border=True):
+                    if is_active:
+                        st.success("Selected layout", icon="✅")
+                    try:
+                        with st.spinner(f"Preparing {t_name} preview..."):
                             thumbnail_bytes = get_cached_thumbnail(
                                 resume_payload_json,
                                 t_name,
                                 active_color,
+                                state.get("resume_font_family", "Helvetica"),
                             )
-                            st.markdown("<div class='resume-thumbnail-card'>", unsafe_allow_html=True)
+                        if thumbnail_bytes:
                             st.image(thumbnail_bytes, width="stretch")
-                            st.markdown("</div>", unsafe_allow_html=True)
-                        except Exception as err:
-                            st.error(f"Error generating thumbnail: {err}")
-
-                with col_details:
-                    st.markdown("<div class='template-metadata-box'>", unsafe_allow_html=True)
-                    if is_active:
-                        st.markdown(
-                            f"<div class='active-badge-pill' style='background:{swatches[0]};'>✓ ACTIVE SELECTION</div>",
-                            unsafe_allow_html=True,
-                        )
-                    st.markdown(f"### {t_name}")
-                    st.markdown(f"*{preview['style']}*")
-                    st.markdown(f"**Structure:** {preview['structure']}")
-                    st.markdown(f"**Best for:** {preview['best_for']}")
-
-                    st.write("")
+                    except Exception as err:
+                        st.warning(f"Preview unavailable: {err}")
+                    st.markdown(f"**{t_name}**")
+                    st.caption(preview["style"])
+                    st.caption(f"Best for: {preview['best_for']}")
+                    with st.expander("Section order"):
+                        st.write(preview["structure"])
                     if is_active:
                         st.button(
-                            "✓ Active Selection",
+                            "Selected",
                             key=f"active_choice_{index}_{slug}",
                             disabled=True,
-                            type="primary",
                             width="stretch",
                         )
-                    else:
-                        if st.button(
-                            "Select This Template",
-                            key=f"select_choice_{index}_{slug}",
-                            type="primary",
-                            width="stretch",
-                        ):
-                            state["selected_template"] = t_name
-                            state.resume_template = t_name
-                            st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    elif st.button(
+                        "Use this layout",
+                        key=f"select_choice_{index}_{slug}",
+                        type="primary",
+                        width="stretch",
+                    ):
+                        state["selected_template"] = t_name
+                        state.resume_template = t_name
+                        st.rerun()
 
         st.divider()
         if st.button("Create Resume PDF with Selected Template →", type="primary", width="stretch"):
             state.resume_template = state.get("selected_template", current_template)
             state.resume_color_scheme = active_color
+            state.resume_font_family = state.get("resume_font_family", "Helvetica")
             state.resume_pdf = None
             state.step = 3
             st.rerun()
@@ -906,6 +1044,7 @@ def resume_builder_page():
                 state.resume_data,
                 template=state.resume_template,
                 color_scheme=state.resume_color_scheme,
+                font_family=state.get("resume_font_family", "Helvetica"),
             )
         download_name = st.text_input(
             "Resume version / PDF file name",
@@ -936,6 +1075,7 @@ def resume_builder_page():
                 state.selected_template = TEMPLATE_OPTIONS[0]
                 state.resume_color_scheme = COLOR_OPTIONS[0]
                 state.selected_color_scheme = COLOR_OPTIONS[0]
+                state.resume_font_family = "Helvetica"
                 state.resume_pdf = None
                 state.step = 1
                 state.pop("resume_download_name", None)
@@ -961,6 +1101,16 @@ def _set_form_widget_state(data, overwrite=False):
         "builder_linkedin": data.get("linkedin", ""),
         "builder_github": data.get("github", ""),
         "builder_location": data.get("location", ""),
+        "builder_headline": data.get("headline", ""),
+        "builder_portfolio": data.get("portfolio", ""),
+        "builder_website": data.get("website", ""),
+        "builder_languages": "\n".join(data.get("languages", [])),
+        "builder_awards": "\n".join(data.get("awards", [])),
+        "builder_achievements": "\n".join(data.get("achievements", [])),
+        "builder_volunteer": "\n".join(data.get("volunteer", [])),
+        "builder_extracurricular": "\n".join(data.get("extracurricular", [])),
+        "builder_publications": "\n".join(data.get("publications", [])),
+        "builder_interests": ", ".join(data.get("interests", [])),
         "builder_summary": data.get("summary", ""),
         "builder_skills_text": ", ".join(data.get("skills", [])),
         "builder_certifications": "\n".join(data.get("certifications", [])),
@@ -974,29 +1124,29 @@ def _set_form_widget_state(data, overwrite=False):
 
     active_repeat_keys = set()
     for index in range(len(education)):
-        active_repeat_keys.update(f"edu_{field}_{index}" for field in ("degree", "year", "institute", "score"))
+        active_repeat_keys.update(f"edu_{field}_{index}" for field in ("degree", "year", "institute", "score", "field", "location", "detail"))
     for index in range(len(experience)):
-        active_repeat_keys.update(f"exp_{field}_{index}" for field in ("role", "company", "duration", "desc"))
+        active_repeat_keys.update(f"exp_{field}_{index}" for field in ("role", "company", "duration", "type", "location", "desc"))
     for index in range(len(projects)):
-        active_repeat_keys.update(f"proj_{field}_{index}" for field in ("title", "tech", "desc"))
-    repeat_prefixes = ("edu_degree_", "edu_year_", "edu_institute_", "edu_score_", "exp_role_", "exp_company_", "exp_duration_", "exp_desc_", "proj_title_", "proj_tech_", "proj_desc_")
+        active_repeat_keys.update(f"proj_{field}_{index}" for field in ("title", "tech", "dates", "url", "desc"))
+    repeat_prefixes = ("edu_degree_", "edu_year_", "edu_institute_", "edu_score_", "edu_field_", "edu_location_", "edu_detail_", "exp_role_", "exp_company_", "exp_duration_", "exp_type_", "exp_location_", "exp_desc_", "proj_title_", "proj_tech_", "proj_dates_", "proj_url_", "proj_desc_")
     if overwrite:
         for key in list(st.session_state):
             if key.startswith(repeat_prefixes) and key not in active_repeat_keys:
                 del st.session_state[key]
 
     for index, item in enumerate(education):
-        for field in ("degree", "year", "institute", "score"):
+        for field in ("degree", "year", "institute", "score", "field", "location", "detail"):
             key = f"edu_{field}_{index}"
             if overwrite or key not in st.session_state:
                 st.session_state[key] = item.get(field, "")
     for index, item in enumerate(experience):
-        for field, widget_field in (("role", "role"), ("company", "company"), ("duration", "duration"), ("description", "desc")):
+        for field, widget_field in (("role", "role"), ("company", "company"), ("duration", "duration"), ("employment_type", "type"), ("location", "location"), ("description", "desc")):
             key = f"exp_{widget_field}_{index}"
             if overwrite or key not in st.session_state:
                 st.session_state[key] = item.get(field, "")
     for index, item in enumerate(projects):
-        for field, widget_field in (("title", "title"), ("tech", "tech"), ("description", "desc")):
+        for field, widget_field in (("title", "title"), ("tech", "tech"), ("dates", "dates"), ("url", "url"), ("description", "desc")):
             key = f"proj_{widget_field}_{index}"
             if overwrite or key not in st.session_state:
                 st.session_state[key] = item.get(field, "")
@@ -1011,6 +1161,9 @@ def _collect_active_resume_data():
             "institute": state.get(f"edu_institute_{index}", ""),
             "year": state.get(f"edu_year_{index}", ""),
             "score": state.get(f"edu_score_{index}", ""),
+            "field": state.get(f"edu_field_{index}", ""),
+            "location": state.get(f"edu_location_{index}", ""),
+            "description": state.get(f"edu_detail_{index}", ""),
         })
     experience = []
     for index in range(int(state.get("num_exp", 1))):
@@ -1018,6 +1171,8 @@ def _collect_active_resume_data():
             "role": state.get(f"exp_role_{index}", ""),
             "company": state.get(f"exp_company_{index}", ""),
             "duration": state.get(f"exp_duration_{index}", ""),
+            "employment_type": state.get(f"exp_type_{index}", ""),
+            "location": state.get(f"exp_location_{index}", ""),
             "description": state.get(f"exp_desc_{index}", ""),
         })
     projects = []
@@ -1025,6 +1180,8 @@ def _collect_active_resume_data():
         projects.append({
             "title": state.get(f"proj_title_{index}", ""),
             "tech": state.get(f"proj_tech_{index}", ""),
+            "dates": state.get(f"proj_dates_{index}", ""),
+            "url": state.get(f"proj_url_{index}", ""),
             "description": state.get(f"proj_desc_{index}", ""),
         })
     skills_text = state.get("builder_skills_text", "")
@@ -1035,12 +1192,22 @@ def _collect_active_resume_data():
         "linkedin": state.get("builder_linkedin", ""),
         "github": state.get("builder_github", ""),
         "location": state.get("builder_location", ""),
+        "headline": state.get("builder_headline", ""),
+        "portfolio": state.get("builder_portfolio", ""),
+        "website": state.get("builder_website", ""),
         "summary": state.get("builder_summary", ""),
         "skills": [skill.strip() for skill in skills_text.split(",") if skill.strip()],
         "experience": experience,
         "projects": projects,
         "education": education,
         "certifications": [item.strip() for item in state.get("builder_certifications", "").splitlines() if item.strip()],
+        "languages": [item.strip() for item in state.get("builder_languages", "").splitlines() if item.strip()],
+        "awards": [item.strip() for item in state.get("builder_awards", "").splitlines() if item.strip()],
+        "achievements": [item.strip() for item in state.get("builder_achievements", "").splitlines() if item.strip()],
+        "volunteer": [item.strip() for item in state.get("builder_volunteer", "").splitlines() if item.strip()],
+        "extracurricular": [item.strip() for item in state.get("builder_extracurricular", "").splitlines() if item.strip()],
+        "publications": [item.strip() for item in state.get("builder_publications", "").splitlines() if item.strip()],
+        "interests": [item.strip() for item in state.get("builder_interests", "").split(",") if item.strip()],
     }
 
 
@@ -1057,6 +1224,7 @@ def _save_current_resume_version():
         "saved_at": saved_at,
         "template": state.resume_template,
         "color_scheme": state.resume_color_scheme,
+        "font_family": state.get("resume_font_family", "Helvetica"),
         "data": resume_data,
     }
     try:

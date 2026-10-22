@@ -1,0 +1,605 @@
+{
+  "split_strategy": "company-grouped train/validation/test; validation used for threshold selection",
+  "threshold_calibration": {
+    "candidate_range": [
+      0.1,
+      0.9
+    ],
+    "step": 0.05,
+    "minimum_validation_support": 10,
+    "validation_support_by_label": {
+      "Accounting/Auditing": 916,
+      "Administrative": 708,
+      "Advertising": 84,
+      "Analyst": 483,
+      "Art/Creative": 313,
+      "Business Development": 1857,
+      "Consulting": 302,
+      "Customer Service": 578,
+      "Design": 354,
+      "Distribution": 27,
+      "Education": 326,
+      "Engineering": 1670,
+      "Finance": 1284,
+      "General Business": 185,
+      "Health Care Provider": 3509,
+      "Human Resources": 412,
+      "Information Technology": 3532,
+      "Legal": 465,
+      "Management": 3106,
+      "Manufacturing": 2708,
+      "Marketing": 808,
+      "Other": 2091,
+      "Product Management": 233,
+      "Production": 147,
+      "Project Management": 549,
+      "Public Relations": 205,
+      "Purchasing": 97,
+      "Quality Assurance": 328,
+      "Research": 422,
+      "Sales": 3027,
+      "Science": 155,
+      "Strategy/Planning": 130,
+      "Supply Chain": 199,
+      "Training": 385,
+      "Writing/Editing": 205
+    },
+    "threshold_by_label": {
+      "Accounting/Auditing": 0.3,
+      "Administrative": 0.15,
+      "Advertising": 0.1,
+      "Analyst": 0.15,
+      "Art/Creative": 0.1,
+      "Business Development": 0.2,
+      "Consulting": 0.1,
+      "Customer Service": 0.2,
+      "Design": 0.1,
+      "Distribution": 0.5,
+      "Education": 0.15,
+      "Engineering": 0.25,
+      "Finance": 0.2,
+      "General Business": 0.1,
+      "Health Care Provider": 0.3,
+      "Human Resources": 0.15,
+      "Information Technology": 0.3,
+      "Legal": 0.15,
+      "Management": 0.35,
+      "Manufacturing": 0.25,
+      "Marketing": 0.15,
+      "Other": 0.2,
+      "Product Management": 0.15,
+      "Production": 0.1,
+      "Project Management": 0.25,
+      "Public Relations": 0.1,
+      "Purchasing": 0.1,
+      "Quality Assurance": 0.15,
+      "Research": 0.15,
+      "Sales": 0.3,
+      "Science": 0.1,
+      "Strategy/Planning": 0.1,
+      "Supply Chain": 0.2,
+      "Training": 0.15,
+      "Writing/Editing": 0.1
+    }
+  },
+  "fixed_threshold": {
+    "threshold": 0.5,
+    "test_examples": 17975,
+    "micro_precision": 0.773,
+    "micro_recall": 0.4544,
+    "micro_f1": 0.5724,
+    "macro_precision": 0.6523,
+    "macro_recall": 0.2756,
+    "macro_f1": 0.3573,
+    "samples_f1": 0.4943,
+    "hamming_loss": 0.0329,
+    "exact_set_accuracy": 0.3646,
+    "per_label": {
+      "Accounting/Auditing": {
+        "support": 728,
+        "predicted": 479,
+        "precision": 0.8727,
+        "recall": 0.5742,
+        "f1": 0.6926
+      },
+      "Administrative": {
+        "support": 663,
+        "predicted": 187,
+        "precision": 0.7273,
+        "recall": 0.2051,
+        "f1": 0.32
+      },
+      "Advertising": {
+        "support": 228,
+        "predicted": 2,
+        "precision": 1.0,
+        "recall": 0.0088,
+        "f1": 0.0174
+      },
+      "Analyst": {
+        "support": 558,
+        "predicted": 115,
+        "precision": 0.5652,
+        "recall": 0.1165,
+        "f1": 0.1932
+      },
+      "Art/Creative": {
+        "support": 251,
+        "predicted": 50,
+        "precision": 0.68,
+        "recall": 0.1355,
+        "f1": 0.2259
+      },
+      "Business Development": {
+        "support": 1691,
+        "predicted": 1109,
+        "precision": 0.7394,
+        "recall": 0.4849,
+        "f1": 0.5857
+      },
+      "Consulting": {
+        "support": 322,
+        "predicted": 6,
+        "precision": 0.3333,
+        "recall": 0.0062,
+        "f1": 0.0122
+      },
+      "Customer Service": {
+        "support": 692,
+        "predicted": 177,
+        "precision": 0.8701,
+        "recall": 0.2225,
+        "f1": 0.3544
+      },
+      "Design": {
+        "support": 332,
+        "predicted": 72,
+        "precision": 0.7917,
+        "recall": 0.1717,
+        "f1": 0.2822
+      },
+      "Distribution": {
+        "support": 70,
+        "predicted": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "Education": {
+        "support": 387,
+        "predicted": 139,
+        "precision": 0.7842,
+        "recall": 0.2817,
+        "f1": 0.4144
+      },
+      "Engineering": {
+        "support": 1927,
+        "predicted": 1249,
+        "precision": 0.7358,
+        "recall": 0.4769,
+        "f1": 0.5787
+      },
+      "Finance": {
+        "support": 1091,
+        "predicted": 728,
+        "precision": 0.6909,
+        "recall": 0.461,
+        "f1": 0.5531
+      },
+      "General Business": {
+        "support": 218,
+        "predicted": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "Health Care Provider": {
+        "support": 2512,
+        "predicted": 2280,
+        "precision": 0.8561,
+        "recall": 0.7771,
+        "f1": 0.8147
+      },
+      "Human Resources": {
+        "support": 358,
+        "predicted": 212,
+        "precision": 0.8255,
+        "recall": 0.4888,
+        "f1": 0.614
+      },
+      "Information Technology": {
+        "support": 3841,
+        "predicted": 3027,
+        "precision": 0.7519,
+        "recall": 0.5926,
+        "f1": 0.6628
+      },
+      "Legal": {
+        "support": 336,
+        "predicted": 241,
+        "precision": 0.9253,
+        "recall": 0.6637,
+        "f1": 0.773
+      },
+      "Management": {
+        "support": 3280,
+        "predicted": 2253,
+        "precision": 0.7497,
+        "recall": 0.5149,
+        "f1": 0.6105
+      },
+      "Manufacturing": {
+        "support": 2893,
+        "predicted": 2144,
+        "precision": 0.7407,
+        "recall": 0.5489,
+        "f1": 0.6305
+      },
+      "Marketing": {
+        "support": 934,
+        "predicted": 545,
+        "precision": 0.822,
+        "recall": 0.4797,
+        "f1": 0.6058
+      },
+      "Other": {
+        "support": 1730,
+        "predicted": 206,
+        "precision": 0.665,
+        "recall": 0.0792,
+        "f1": 0.1415
+      },
+      "Product Management": {
+        "support": 165,
+        "predicted": 40,
+        "precision": 0.85,
+        "recall": 0.2061,
+        "f1": 0.3317
+      },
+      "Production": {
+        "support": 113,
+        "predicted": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "Project Management": {
+        "support": 555,
+        "predicted": 257,
+        "precision": 0.7665,
+        "recall": 0.355,
+        "f1": 0.4852
+      },
+      "Public Relations": {
+        "support": 159,
+        "predicted": 19,
+        "precision": 0.6842,
+        "recall": 0.0818,
+        "f1": 0.1461
+      },
+      "Purchasing": {
+        "support": 76,
+        "predicted": 26,
+        "precision": 0.7308,
+        "recall": 0.25,
+        "f1": 0.3725
+      },
+      "Quality Assurance": {
+        "support": 273,
+        "predicted": 60,
+        "precision": 0.7833,
+        "recall": 0.1722,
+        "f1": 0.2823
+      },
+      "Research": {
+        "support": 439,
+        "predicted": 131,
+        "precision": 0.7328,
+        "recall": 0.2187,
+        "f1": 0.3368
+      },
+      "Sales": {
+        "support": 2769,
+        "predicted": 2025,
+        "precision": 0.8188,
+        "recall": 0.5988,
+        "f1": 0.6917
+      },
+      "Science": {
+        "support": 93,
+        "predicted": 6,
+        "precision": 0.3333,
+        "recall": 0.0215,
+        "f1": 0.0404
+      },
+      "Strategy/Planning": {
+        "support": 182,
+        "predicted": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "Supply Chain": {
+        "support": 168,
+        "predicted": 39,
+        "precision": 0.7436,
+        "recall": 0.1726,
+        "f1": 0.2802
+      },
+      "Training": {
+        "support": 298,
+        "predicted": 79,
+        "precision": 0.4557,
+        "recall": 0.1208,
+        "f1": 0.191
+      },
+      "Writing/Editing": {
+        "support": 184,
+        "predicted": 36,
+        "precision": 0.8056,
+        "recall": 0.1576,
+        "f1": 0.2636
+      }
+    }
+  },
+  "validation_tuned_thresholds": {
+    "test_examples": 17975,
+    "micro_precision": 0.6277,
+    "micro_recall": 0.6494,
+    "micro_f1": 0.6384,
+    "macro_precision": 0.5074,
+    "macro_recall": 0.4906,
+    "macro_f1": 0.4924,
+    "samples_f1": 0.6225,
+    "hamming_loss": 0.0357,
+    "exact_set_accuracy": 0.4076,
+    "per_label": {
+      "Accounting/Auditing": {
+        "support": 728,
+        "predicted": 612,
+        "precision": 0.817,
+        "recall": 0.6868,
+        "f1": 0.7463
+      },
+      "Administrative": {
+        "support": 663,
+        "predicted": 695,
+        "precision": 0.4317,
+        "recall": 0.4525,
+        "f1": 0.4418
+      },
+      "Advertising": {
+        "support": 228,
+        "predicted": 83,
+        "precision": 0.3494,
+        "recall": 0.1272,
+        "f1": 0.1865
+      },
+      "Analyst": {
+        "support": 558,
+        "predicted": 600,
+        "precision": 0.375,
+        "recall": 0.4032,
+        "f1": 0.3886
+      },
+      "Art/Creative": {
+        "support": 251,
+        "predicted": 208,
+        "precision": 0.4904,
+        "recall": 0.4064,
+        "f1": 0.4444
+      },
+      "Business Development": {
+        "support": 1691,
+        "predicted": 2011,
+        "precision": 0.5952,
+        "recall": 0.7079,
+        "f1": 0.6467
+      },
+      "Consulting": {
+        "support": 322,
+        "predicted": 305,
+        "precision": 0.2852,
+        "recall": 0.2702,
+        "f1": 0.2775
+      },
+      "Customer Service": {
+        "support": 692,
+        "predicted": 352,
+        "precision": 0.6875,
+        "recall": 0.3497,
+        "f1": 0.4636
+      },
+      "Design": {
+        "support": 332,
+        "predicted": 348,
+        "precision": 0.4023,
+        "recall": 0.4217,
+        "f1": 0.4118
+      },
+      "Distribution": {
+        "support": 70,
+        "predicted": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "Education": {
+        "support": 387,
+        "predicted": 358,
+        "precision": 0.6564,
+        "recall": 0.6072,
+        "f1": 0.6309
+      },
+      "Engineering": {
+        "support": 1927,
+        "predicted": 2319,
+        "precision": 0.6063,
+        "recall": 0.7296,
+        "f1": 0.6623
+      },
+      "Finance": {
+        "support": 1091,
+        "predicted": 1376,
+        "precision": 0.6308,
+        "recall": 0.7956,
+        "f1": 0.7037
+      },
+      "General Business": {
+        "support": 218,
+        "predicted": 4,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "Health Care Provider": {
+        "support": 2512,
+        "predicted": 2642,
+        "precision": 0.8191,
+        "recall": 0.8615,
+        "f1": 0.8397
+      },
+      "Human Resources": {
+        "support": 358,
+        "predicted": 318,
+        "precision": 0.7579,
+        "recall": 0.6732,
+        "f1": 0.713
+      },
+      "Information Technology": {
+        "support": 3841,
+        "predicted": 4387,
+        "precision": 0.6672,
+        "recall": 0.762,
+        "f1": 0.7115
+      },
+      "Legal": {
+        "support": 336,
+        "predicted": 325,
+        "precision": 0.8338,
+        "recall": 0.8065,
+        "f1": 0.82
+      },
+      "Management": {
+        "support": 3280,
+        "predicted": 3190,
+        "precision": 0.684,
+        "recall": 0.6652,
+        "f1": 0.6745
+      },
+      "Manufacturing": {
+        "support": 2893,
+        "predicted": 3523,
+        "precision": 0.6205,
+        "recall": 0.7556,
+        "f1": 0.6814
+      },
+      "Marketing": {
+        "support": 934,
+        "predicted": 1111,
+        "precision": 0.6247,
+        "recall": 0.743,
+        "f1": 0.6787
+      },
+      "Other": {
+        "support": 1730,
+        "predicted": 1622,
+        "precision": 0.3607,
+        "recall": 0.3382,
+        "f1": 0.349
+      },
+      "Product Management": {
+        "support": 165,
+        "predicted": 137,
+        "precision": 0.708,
+        "recall": 0.5879,
+        "f1": 0.6424
+      },
+      "Production": {
+        "support": 113,
+        "predicted": 49,
+        "precision": 0.2041,
+        "recall": 0.0885,
+        "f1": 0.1235
+      },
+      "Project Management": {
+        "support": 555,
+        "predicted": 472,
+        "precision": 0.6504,
+        "recall": 0.5532,
+        "f1": 0.5979
+      },
+      "Public Relations": {
+        "support": 159,
+        "predicted": 174,
+        "precision": 0.4195,
+        "recall": 0.4591,
+        "f1": 0.4384
+      },
+      "Purchasing": {
+        "support": 76,
+        "predicted": 96,
+        "precision": 0.4583,
+        "recall": 0.5789,
+        "f1": 0.5116
+      },
+      "Quality Assurance": {
+        "support": 273,
+        "predicted": 234,
+        "precision": 0.5983,
+        "recall": 0.5128,
+        "f1": 0.5523
+      },
+      "Research": {
+        "support": 439,
+        "predicted": 435,
+        "precision": 0.5287,
+        "recall": 0.5239,
+        "f1": 0.5263
+      },
+      "Sales": {
+        "support": 2769,
+        "predicted": 2825,
+        "precision": 0.7214,
+        "recall": 0.736,
+        "f1": 0.7286
+      },
+      "Science": {
+        "support": 93,
+        "predicted": 98,
+        "precision": 0.3367,
+        "recall": 0.3548,
+        "f1": 0.3455
+      },
+      "Strategy/Planning": {
+        "support": 182,
+        "predicted": 68,
+        "precision": 0.0882,
+        "recall": 0.033,
+        "f1": 0.048
+      },
+      "Supply Chain": {
+        "support": 168,
+        "predicted": 112,
+        "precision": 0.4821,
+        "recall": 0.3214,
+        "f1": 0.3857
+      },
+      "Training": {
+        "support": 298,
+        "predicted": 307,
+        "precision": 0.4007,
+        "recall": 0.4128,
+        "f1": 0.4066
+      },
+      "Writing/Editing": {
+        "support": 184,
+        "predicted": 176,
+        "precision": 0.4659,
+        "recall": 0.4457,
+        "f1": 0.4556
+      }
+    }
+  },
+  "warning": "Metrics describe prediction of dataset-defined broad job functions, not resume-job fit or ATS accuracy."
+}

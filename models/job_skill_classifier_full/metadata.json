@@ -1,0 +1,219 @@
+{
+  "created_at_utc": "2026-10-20T13:20:33.113093+00:00",
+  "model_type": "TF-IDF + OneVsRest LogisticRegression",
+  "task": "multi-label prediction of broad job-function categories from job title and description",
+  "source_files": {
+    "postings.csv": "C:\\Users\\HP\\OneDrive\\Desktop\\archive\\postings.csv",
+    "jobs/job_skills.csv": "C:\\Users\\HP\\OneDrive\\Desktop\\archive\\jobs\\job_skills.csv",
+    "mappings/skills.csv": "C:\\Users\\HP\\OneDrive\\Desktop\\archive\\mappings\\skills.csv"
+  },
+  "read_stats": {
+    "posting_rows_scanned": 123849,
+    "labeled_examples_seen": 122096,
+    "examples_used": 122096
+  },
+  "examples_used_after_label_filter": 122096,
+  "company_groups_used": 25034,
+  "split_examples": {
+    "train": 84625,
+    "validation": 19496,
+    "test": 17975
+  },
+  "split_groups": {
+    "train": 17523,
+    "validation": 3755,
+    "test": 3756
+  },
+  "label_support_before_filter": {
+    "Accounting/Auditing": {
+      "examples": 4999,
+      "groups": 2491
+    },
+    "Administrative": {
+      "examples": 4787,
+      "groups": 2539
+    },
+    "Advertising": {
+      "examples": 652,
+      "groups": 287
+    },
+    "Analyst": {
+      "examples": 3775,
+      "groups": 1761
+    },
+    "Art/Creative": {
+      "examples": 1637,
+      "groups": 1093
+    },
+    "Business Development": {
+      "examples": 13304,
+      "groups": 4892
+    },
+    "Consulting": {
+      "examples": 2241,
+      "groups": 1001
+    },
+    "Customer Service": {
+      "examples": 4167,
+      "groups": 1182
+    },
+    "Design": {
+      "examples": 2207,
+      "groups": 1427
+    },
+    "Distribution": {
+      "examples": 409,
+      "groups": 186
+    },
+    "Education": {
+      "examples": 2217,
+      "groups": 993
+    },
+    "Engineering": {
+      "examples": 12530,
+      "groups": 4775
+    },
+    "Finance": {
+      "examples": 8011,
+      "groups": 3594
+    },
+    "General Business": {
+      "examples": 1929,
+      "groups": 604
+    },
+    "Health Care Provider": {
+      "examples": 16675,
+      "groups": 2523
+    },
+    "Human Resources": {
+      "examples": 2608,
+      "groups": 1745
+    },
+    "Information Technology": {
+      "examples": 25256,
+      "groups": 7960
+    },
+    "Legal": {
+      "examples": 2229,
+      "groups": 1231
+    },
+    "Management": {
+      "examples": 20385,
+      "groups": 5839
+    },
+    "Manufacturing": {
+      "examples": 17728,
+      "groups": 4950
+    },
+    "Marketing": {
+      "examples": 5400,
+      "groups": 2760
+    },
+    "Other": {
+      "examples": 12314,
+      "groups": 3878
+    },
+    "Product Management": {
+      "examples": 1313,
+      "groups": 750
+    },
+    "Production": {
+      "examples": 753,
+      "groups": 392
+    },
+    "Project Management": {
+      "examples": 3825,
+      "groups": 2249
+    },
+    "Public Relations": {
+      "examples": 1258,
+      "groups": 838
+    },
+    "Purchasing": {
+      "examples": 599,
+      "groups": 453
+    },
+    "Quality Assurance": {
+      "examples": 1752,
+      "groups": 1042
+    },
+    "Research": {
+      "examples": 2928,
+      "groups": 1348
+    },
+    "Sales": {
+      "examples": 21193,
+      "groups": 7162
+    },
+    "Science": {
+      "examples": 782,
+      "groups": 341
+    },
+    "Strategy/Planning": {
+      "examples": 1158,
+      "groups": 735
+    },
+    "Supply Chain": {
+      "examples": 1167,
+      "groups": 696
+    },
+    "Training": {
+      "examples": 2164,
+      "groups": 968
+    },
+    "Writing/Editing": {
+      "examples": 1426,
+      "groups": 910
+    }
+  },
+  "discarded_low_support_labels": {},
+  "classes": [
+    "Accounting/Auditing",
+    "Administrative",
+    "Advertising",
+    "Analyst",
+    "Art/Creative",
+    "Business Development",
+    "Consulting",
+    "Customer Service",
+    "Design",
+    "Distribution",
+    "Education",
+    "Engineering",
+    "Finance",
+    "General Business",
+    "Health Care Provider",
+    "Human Resources",
+    "Information Technology",
+    "Legal",
+    "Management",
+    "Manufacturing",
+    "Marketing",
+    "Other",
+    "Product Management",
+    "Production",
+    "Project Management",
+    "Public Relations",
+    "Purchasing",
+    "Quality Assurance",
+    "Research",
+    "Sales",
+    "Science",
+    "Strategy/Planning",
+    "Supply Chain",
+    "Training",
+    "Writing/Editing"
+  ],
+  "parameters": {
+    "validation_size": 0.15,
+    "test_size": 0.15,
+    "seed": 42,
+    "max_features": 20000,
+    "min_df": 2,
+    "max_iter": 200,
+    "fixed_threshold": 0.5,
+    "min_label_support": 20,
+    "min_label_groups": 5,
+    "min_calibration_support": 10
+  }
+}

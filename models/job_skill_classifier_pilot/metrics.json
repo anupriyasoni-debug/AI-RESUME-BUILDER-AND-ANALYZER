@@ -1,0 +1,298 @@
+{
+  "test_examples": 1000,
+  "micro_precision": 0.8838,
+  "micro_recall": 0.3165,
+  "micro_f1": 0.466,
+  "macro_precision": 0.3954,
+  "macro_recall": 0.1239,
+  "macro_f1": 0.1765,
+  "samples_f1": 0.3573,
+  "hamming_loss": 0.0344,
+  "exact_set_accuracy": 0.295,
+  "per_label": {
+    "Accounting/Auditing": {
+      "support": 45,
+      "predicted": 16,
+      "precision": 0.9375,
+      "recall": 0.3333,
+      "f1": 0.4918
+    },
+    "Administrative": {
+      "support": 42,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Advertising": {
+      "support": 4,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Analyst": {
+      "support": 32,
+      "predicted": 2,
+      "precision": 1.0,
+      "recall": 0.0625,
+      "f1": 0.1176
+    },
+    "Art/Creative": {
+      "support": 12,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Business Development": {
+      "support": 118,
+      "predicted": 51,
+      "precision": 0.9608,
+      "recall": 0.4153,
+      "f1": 0.5799
+    },
+    "Consulting": {
+      "support": 12,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Customer Service": {
+      "support": 14,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Design": {
+      "support": 18,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Distribution": {
+      "support": 0,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Education": {
+      "support": 15,
+      "predicted": 3,
+      "precision": 1.0,
+      "recall": 0.2,
+      "f1": 0.3333
+    },
+    "Engineering": {
+      "support": 102,
+      "predicted": 37,
+      "precision": 0.8919,
+      "recall": 0.3235,
+      "f1": 0.4748
+    },
+    "Finance": {
+      "support": 72,
+      "predicted": 15,
+      "precision": 0.8,
+      "recall": 0.1667,
+      "f1": 0.2759
+    },
+    "General Business": {
+      "support": 9,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Health Care Provider": {
+      "support": 157,
+      "predicted": 120,
+      "precision": 0.8667,
+      "recall": 0.6624,
+      "f1": 0.7509
+    },
+    "Human Resources": {
+      "support": 29,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Information Technology": {
+      "support": 204,
+      "predicted": 107,
+      "precision": 0.8505,
+      "recall": 0.4461,
+      "f1": 0.5852
+    },
+    "Legal": {
+      "support": 23,
+      "predicted": 2,
+      "precision": 1.0,
+      "recall": 0.087,
+      "f1": 0.16
+    },
+    "Management": {
+      "support": 165,
+      "predicted": 67,
+      "precision": 0.8657,
+      "recall": 0.3515,
+      "f1": 0.5
+    },
+    "Manufacturing": {
+      "support": 147,
+      "predicted": 66,
+      "precision": 0.8333,
+      "recall": 0.3741,
+      "f1": 0.5164
+    },
+    "Marketing": {
+      "support": 43,
+      "predicted": 5,
+      "precision": 1.0,
+      "recall": 0.1163,
+      "f1": 0.2083
+    },
+    "Other": {
+      "support": 76,
+      "predicted": 10,
+      "precision": 0.9,
+      "recall": 0.1184,
+      "f1": 0.2093
+    },
+    "Product Management": {
+      "support": 11,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Production": {
+      "support": 4,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Project Management": {
+      "support": 37,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Public Relations": {
+      "support": 7,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Purchasing": {
+      "support": 6,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Quality Assurance": {
+      "support": 9,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Research": {
+      "support": 23,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Sales": {
+      "support": 180,
+      "predicted": 90,
+      "precision": 0.9333,
+      "recall": 0.4667,
+      "f1": 0.6222
+    },
+    "Science": {
+      "support": 2,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Strategy/Planning": {
+      "support": 12,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Supply Chain": {
+      "support": 5,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "Training": {
+      "support": 14,
+      "predicted": 3,
+      "precision": 1.0,
+      "recall": 0.2143,
+      "f1": 0.3529
+    },
+    "Writing/Editing": {
+      "support": 10,
+      "predicted": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    }
+  },
+  "training_examples": 4000,
+  "labels": [
+    "Accounting/Auditing",
+    "Administrative",
+    "Advertising",
+    "Analyst",
+    "Art/Creative",
+    "Business Development",
+    "Consulting",
+    "Customer Service",
+    "Design",
+    "Distribution",
+    "Education",
+    "Engineering",
+    "Finance",
+    "General Business",
+    "Health Care Provider",
+    "Human Resources",
+    "Information Technology",
+    "Legal",
+    "Management",
+    "Manufacturing",
+    "Marketing",
+    "Other",
+    "Product Management",
+    "Production",
+    "Project Management",
+    "Public Relations",
+    "Purchasing",
+    "Quality Assurance",
+    "Research",
+    "Sales",
+    "Science",
+    "Strategy/Planning",
+    "Supply Chain",
+    "Training",
+    "Writing/Editing"
+  ],
+  "threshold": 0.5
+}

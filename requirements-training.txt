@@ -1,0 +1,6 @@
+# Optional Training Dependencies for AI Resume Builder & Analyzer
+# Required only if you intend to run the local ML model training script (training/train_classifier.py).
+# Normal app execution (resume building, PDF export, ATS scoring, TF-IDF matching) does NOT require these.
+
+scikit-learn>=1.3.0
+joblib>=1.3.0
