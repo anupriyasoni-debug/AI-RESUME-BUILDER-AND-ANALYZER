@@ -215,26 +215,30 @@ def _render_score_diagram(label_a, label_b, result_a, result_b):
         score_a = max(0, min(100, round(100 * result_a[field] / maximum)))
         score_b = max(0, min(100, round(100 * result_b[field] / maximum)))
         rows.append(
-            f"<div class='score-row'><div class='score-title'>{html.escape(title)}</div>"
-            f"<div class='score-label'>{safe_a} <b>{result_a[field]}/{maximum}</b></div>"
-            f"<div class='score-track'><span class='score-a' style='width:{score_a}%'></span></div>"
-            f"<div class='score-label'>{safe_b} <b>{result_b[field]}/{maximum}</b></div>"
-            f"<div class='score-track'><span class='score-b' style='width:{score_b}%'></span></div></div>"
+            f"<div class='score-row'><div class='score-title'>{html.escape(title)}</div><div class='score-pair'>"
+            f"<div class='score-entry'><div class='score-label'><span>{safe_a}</span><b>{result_a[field]}/{maximum}</b></div>"
+            f"<div class='score-track'><span class='score-a' style='width:{score_a}%'></span></div></div>"
+            f"<div class='score-entry'><div class='score-label'><span>{safe_b}</span><b>{result_b[field]}/{maximum}</b></div>"
+            f"<div class='score-track'><span class='score-b' style='width:{score_b}%'></span></div></div></div></div>"
         )
     st.markdown(
         "<style>"
-        ".compare-hero{padding:1.2rem 1.4rem;border-radius:16px;background:linear-gradient(120deg,#172554,#4338ca 65%,#0f766e);color:#fff;margin:.6rem 0 1rem;box-shadow:0 10px 24px rgba(30,41,59,.16)}"
+        ".compare-hero{padding:1.35rem 1.5rem;border-radius:18px;background:radial-gradient(circle at 90% 30%,rgba(139,124,255,.32),transparent 16rem),linear-gradient(120deg,#121521 0%,#1c1c38 55%,#302460 100%);color:#fff;margin:.6rem 0 1rem;border:1px solid rgba(139,124,255,.3);box-shadow:0 24px 70px rgba(55,42,140,.24)}"
         ".compare-hero .eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#bfdbfe;font-weight:700}"
-        ".compare-hero h3{margin:.35rem 0;color:#fff}.compare-hero p{margin:.2rem 0;color:#e0e7ff}"
-        ".score-panel{padding:1rem 1.15rem;border:1px solid #dbe3ee;border-radius:14px;background:#fff;margin:.7rem 0 1rem}"
-        ".score-row{display:grid;grid-template-columns:1fr;gap:.22rem;margin:.6rem 0 1rem}"
-        ".score-title{font-size:.9rem;font-weight:700;color:#1e293b;margin-bottom:.12rem}"
-        ".score-label{display:flex;justify-content:space-between;color:#475569;font-size:.78rem}"
-        ".score-track{height:8px;background:#e9eef6;border-radius:20px;overflow:hidden}"
-        ".score-track span{display:block;height:100%;border-radius:20px}.score-a{background:linear-gradient(90deg,#6366f1,#8b5cf6)}.score-b{background:linear-gradient(90deg,#0f766e,#2dd4bf)}"
-        ".quote-strip{padding:.8rem 1rem;border-left:4px solid #a78bfa;background:#f5f3ff;color:#3730a3;border-radius:0 10px 10px 0;margin:.8rem 0;font-style:italic}"
-        "@media(max-width:650px){.score-row{gap:.3rem}}"
-        "</style><div class='score-panel'><div class='score-row-title'><b>Side-by-side score diagram</b> <span style='color:#64748b;font-size:.82rem'>Bars are normalized to each category maximum.</span></div>"
+        ".compare-hero h3{margin:.4rem 0;color:#fff;line-height:1.2}.compare-hero p{margin:.35rem 0 0;color:#d9d9eb;line-height:1.55}"
+        ".score-panel{padding:1.15rem 1.25rem;border:1px solid #292f40;border-radius:16px;background:rgba(20,23,32,.86);margin:.8rem 0 1.2rem;box-shadow:0 12px 30px rgba(0,0,0,.16)}"
+        ".score-panel-title{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:1rem;color:#f3f5fa}"
+        ".score-panel-title span{color:#9aa4b8;font-size:.8rem;font-weight:400}"
+        ".score-row{padding:.7rem 0;border-top:1px solid #292f40}"
+        ".score-title{font-size:.88rem;font-weight:700;color:#e8eaf2;margin-bottom:.55rem}"
+        ".score-pair{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}"
+        ".score-entry{min-width:0}.score-label{display:flex;justify-content:space-between;gap:.5rem;color:#aab3c4;font-size:.76rem;margin-bottom:.35rem}"
+        ".score-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.score-label b{color:#f3f5fa;white-space:nowrap}"
+        ".score-track{height:8px;background:#30374a;border-radius:20px;overflow:hidden}"
+        ".score-track span{display:block;height:100%;border-radius:20px}.score-a{background:linear-gradient(90deg,#7568e8,#a78bfa)}.score-b{background:linear-gradient(90deg,#0f9f8b,#5eead4)}"
+        ".quote-strip{padding:.9rem 1rem;border-left:3px solid #8b7cff;background:rgba(55,45,105,.36);color:#d6d0ff;border-radius:0 12px 12px 0;margin:.6rem 0;line-height:1.55}"
+        "@media(max-width:650px){.score-pair{grid-template-columns:1fr;gap:.65rem}.score-panel-title{display:block}.score-panel-title span{display:block;margin-top:.3rem}}"
+        "</style><div class='score-panel'><div class='score-panel-title'><b>Score comparison</b><span>Each bar is scaled to its category maximum.</span></div>"
         + "".join(rows)
         + "</div>",
         unsafe_allow_html=True,
@@ -253,11 +257,17 @@ def resume_comparison_page():
     target_role = st.selectbox("Target Job Domain Preset", list(JOB_TAXONOMY.keys()), key="comparison_target_role")
     job_description, jd_source_label = render_job_selector(key_prefix="comparison")
     saved_versions = _list_resume_versions()
-    source_a, source_b = st.columns(2)
+    source_a, source_b = st.columns(2, gap="large")
     with source_a:
-        label_a, text_a = _render_resume_source("A", saved_versions)
+        with st.container(border=True):
+            st.markdown("#### Resume A")
+            st.caption("Choose the first version to review.")
+            label_a, text_a = _render_resume_source("A", saved_versions)
     with source_b:
-        label_b, text_b = _render_resume_source("B", saved_versions)
+        with st.container(border=True):
+            st.markdown("#### Resume B")
+            st.caption("Choose the version you want to compare against A.")
+            label_b, text_b = _render_resume_source("B", saved_versions)
 
     if not text_a or not text_b:
         st.info("Choose or upload both resume versions to compare them.")
@@ -267,7 +277,7 @@ def resume_comparison_page():
         f"comparison-v2\0{target_role}\0{job_description}\0{jd_source_label}\0{text_a}\0{text_b}".encode("utf-8")
     ).hexdigest()
     state = st.session_state
-    if st.button("Compare Resumes (Local Unified Evaluator)", type="primary", key="run_local_comparison"):
+    if st.button("Compare resumes", type="primary", use_container_width=True, key="run_local_comparison"):
         try:
             with st.spinner("Analyzing and comparing resumes locally..."):
                 state["resume_comparison_result"] = _compare_with_local(
@@ -334,16 +344,21 @@ def resume_comparison_page():
             ("Impact (15 pt scale)", "impact_score"),
             ("Length (15 pt scale)", "length_score"),
         )
-        metric_columns = st.columns(len(metric_fields))
-        for column, (label, field) in zip(metric_columns, metric_fields):
+        metrics_a, metrics_b = st.columns(2)
+        for column, label, result, other in (
+            (metrics_a, label_a, res_a, res_b),
+            (metrics_b, label_b, res_b, res_a),
+        ):
             with column:
-                st.markdown(f"**{label}**")
-                version_columns = st.columns(2)
-                with version_columns[0]:
-                    st.metric(label_a, f"{res_a[field]}")
-                with version_columns[1]:
-                    delta = res_b[field] - res_a[field]
-                    st.metric(label_b, f"{res_b[field]}", f"{delta:+}")
+                with st.container(border=True):
+                    st.markdown(f"**{label}**")
+                    st.metric("Overall ATS Score", f"{result['ats_score']} / 100", f"{result['ats_score'] - other['ats_score']:+} vs other")
+                    for component_pair in (metric_fields[1:3], metric_fields[3:5]):
+                        component_columns = st.columns(2)
+                        for metric_column, (metric_label, field) in zip(component_columns, component_pair):
+                            with metric_column:
+                                maximum = 40 if field == "role_score" else 30 if field == "section_score" else 15
+                                st.metric(metric_label, f"{result[field]} / {maximum}")
 
         st.caption(
             f"**Component Breakdown:**\n"

@@ -16,7 +16,7 @@ from analyzer import (
 from resume_builder import resume_builder_page
 from resume_comparison import resume_comparison_page
 from job_catalog import render_job_selector
-from style import GRADIENT_CSS
+from style import DARK_THEME_CSS, GRADIENT_CSS
 
 
 st.set_page_config(page_title="Resumer | AI Resume Builder & Analyzer", layout="wide")
@@ -101,6 +101,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown(DARK_THEME_CSS, unsafe_allow_html=True)
 
 def _navigate_to_page(page_name):
     st.session_state["main_navigation"] = page_name
@@ -113,11 +114,11 @@ def _score_ring_markup(score):
     return (
         f"<div style='display:flex;align-items:center;gap:14px;padding:.8rem 0' role='img' aria-label='Overall ATS rubric score {score} out of 100'>"
         f"<svg width='106' height='106' viewBox='0 0 100 100' aria-hidden='true'>"
-        f"<circle cx='50' cy='50' r='42' fill='none' stroke='#e8e7f2' stroke-width='9'/>"
-        f"<circle cx='50' cy='50' r='42' fill='none' stroke='#7657ff' stroke-width='9' stroke-linecap='round' stroke-dasharray='{circumference:.1f}' stroke-dashoffset='{offset:.1f}' transform='rotate(-90 50 50)'/>"
-        f"<text x='50' y='48' text-anchor='middle' font-size='24' font-weight='750' fill='#10132a'>{score}</text>"
-        "<text x='50' y='65' text-anchor='middle' font-size='10' fill='#6f7185'>out of 100</text></svg>"
-        "<span style='font-size:.85rem;color:#6f7185'>Overall<br><strong style='color:#10132a'>Resume score</strong></span></div>"
+        f"<circle cx='50' cy='50' r='42' fill='none' stroke='#293044' stroke-width='9'/>"
+        f"<circle cx='50' cy='50' r='42' fill='none' stroke='#8b7cff' stroke-width='9' stroke-linecap='round' stroke-dasharray='{circumference:.1f}' stroke-dashoffset='{offset:.1f}' transform='rotate(-90 50 50)'/>"
+        f"<text x='50' y='48' text-anchor='middle' font-size='24' font-weight='750' fill='#f8fafc'>{score}</text>"
+        "<text x='50' y='65' text-anchor='middle' font-size='10' fill='#9aa4b8'>out of 100</text></svg>"
+        "<span style='font-size:.85rem;color:#9aa4b8'>Overall<br><strong style='color:#f8fafc'>Resume score</strong></span></div>"
     )
 
 
