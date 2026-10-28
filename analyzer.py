@@ -85,7 +85,24 @@ def extract_text_from_pdf(uploaded_file):
             text = page.extract_text()
             if text:
                 extracted_chunks.append(text)
-        return "\n".join(extracted_chunks).strip()
+        extracted = "\n".join(extracted_chunks).strip()
+        if extracted:
+            return extracted
+
+        # Optional OCR fallback for image-only PDFs. PyMuPDF delegates OCR to
+        # a locally installed Tesseract; keep the regular text path dependency-free.
+        try:
+            import pymupdf
+            doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+            ocr_chunks = []
+            for page in doc:
+                text_page = page.get_textpage_ocr(language="eng", full=True)
+                page_text = page.get_text(textpage=text_page)
+                if page_text.strip():
+                    ocr_chunks.append(page_text)
+            return "\n".join(ocr_chunks).strip()
+        except Exception:
+            return ""
     except Exception as exc:
         print(f"PDF extraction error: {exc}")
         return ""
@@ -96,6 +113,14 @@ def extract_text_from_docx(uploaded_file):
         uploaded_file.seek(0)
         doc = docx.Document(uploaded_file)
         full_text = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if cells:
+                    full_text.append(" | ".join(cells))
+        for section in doc.sections:
+            for container in (section.header, section.footer):
+                full_text.extend(p.text for p in container.paragraphs if p.text.strip())
         return "\n".join(full_text).strip()
     except Exception as exc:
         print(f"DOCX extraction error: {exc}")
@@ -280,6 +305,31 @@ def _skill_in_text(skill: str, text: str) -> bool:
     return False
 
 
+def _skill_evidence(skill: str, text: str):
+    """Return the first resume line that explicitly supports a matched skill."""
+    canonical = canonicalize_skill(skill)
+    variants = SKILL_ALIASES.get(canonical, {canonical, skill.strip().lower()})
+    for line in text.splitlines():
+        clean_line = line.strip()
+        if clean_line and any(re.search(_build_boundary_pattern(v), clean_line.lower()) for v in variants):
+            return clean_line[:240]
+    return ""
+
+
+def _job_term_weight(term: str, job_description: str) -> float:
+    """Give explicit must-have language more weight than preferred qualifications."""
+    lower = job_description.lower()
+    patterns = [_build_boundary_pattern(v) for v in SKILL_ALIASES.get(canonicalize_skill(term), {term.lower()})]
+    for pattern in patterns:
+        for match in re.finditer(pattern, lower):
+            context = lower[max(0, match.start() - 90):min(len(lower), match.end() + 90)]
+            if re.search(r"\b(required|must[- ]have|minimum qualification|need to|required qualification)\b", context):
+                return 2.0
+            if re.search(r"\b(preferred|nice to have|bonus|ideally)\b", context):
+                return 0.5
+    return 1.0
+
+
 def _extract_job_keywords(job_description):
     """
     Extracts distinct technical skills and keywords from a job description
@@ -343,10 +393,8 @@ def analyze_job_description(resume_text, job_description):
         }
 
     terms = _extract_job_keywords(job_description)
-    matched_terms = [
-        term for term in terms
-        if _skill_in_text(term, resume_text)
-    ]
+    matched_terms = [term for term in terms if _skill_in_text(term, resume_text)]
+    matched_evidence = {term: _skill_evidence(term, resume_text) for term in matched_terms}
     missing_terms = [term for term in terms if term not in matched_terms]
 
     if len(terms) < 3:
@@ -357,13 +405,15 @@ def analyze_job_description(resume_text, job_description):
             "missing_terms": missing_terms,
             "terms_analyzed": len(terms),
             "terms_analyzed_list": terms,
+            "matched_evidence": matched_evidence,
             "notice": (
                 "Fewer than 3 distinct technical skills or requirements were identified in the job description. "
                 "Paste a more detailed job description containing specific technical qualifications for an accurate match percentage."
             ),
         }
 
-    score = int(round((len(matched_terms) / len(terms)) * 100))
+    weights = {term: _job_term_weight(term, job_description) for term in terms}
+    score = int(round((sum(weights[t] for t in matched_terms) / sum(weights.values())) * 100))
     return {
         "available": True,
         "score": score,
@@ -371,6 +421,8 @@ def analyze_job_description(resume_text, job_description):
         "missing_terms": missing_terms,
         "terms_analyzed": len(terms),
         "terms_analyzed_list": terms,
+        "matched_evidence": matched_evidence,
+        "term_weights": weights,
         "notice": None,
     }
 
@@ -439,6 +491,15 @@ def check_grammar(text):
             seen_duplicates.add(word_lower)
             findings.append(f"Adjacent duplicate word '{match.group(1)}': check for accidental duplication.")
 
+    bullet_lines = [
+        re.sub(r"^\s*(?:[-*•▪◦]|\d+[.)])\s*", "", line).strip().lower()
+        for line in text.splitlines()
+        if re.match(r"^\s*(?:[-*•▪◦]|\d+[.)])\s+", line)
+    ]
+    seen_bullets = set()
+    if any(line in seen_bullets or seen_bullets.add(line) for line in bullet_lines if line):
+        findings.append("Duplicate achievement bullet detected: remove it or distinguish the outcomes.")
+
     patterns = (
         (r"\bresponsible of\b", "Use 'responsible for' instead of 'responsible of'."),
         (r"\b(?:I|we|they|you)\s+(?:has|was)\b", "Check subject-verb agreement (for example, 'we were' or 'they have')."),
@@ -469,6 +530,24 @@ def check_formatting(text, missing_sections=None):
         issues.append("Bullet consistency check: Multiple bullet styles detected. Using one consistent marker improves parsing reliability.")
     if missing_sections:
         issues.append(f"Section heading check: Standard headings for {', '.join(missing_sections)} were not detected during text extraction. If already present, standardizing heading titles ensures ATS parsers recognize them.")
+    month = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+    date_value = rf"(?:{month}\s+\d{{4}}|\d{{4}})"
+    reversed_ranges = []
+    month_numbers = {name: number for number, name in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
+
+    def date_key(value):
+        value = value.lower().strip()
+        year = int(re.search(r"\d{4}", value).group())
+        month_match = re.match(month, value)
+        mon = month_numbers.get(month_match.group()[:3], 1) if month_match else 1
+        return year, mon
+
+    for line in lines:
+        for match in re.finditer(rf"({date_value})\s*(?:-|–|—|\bto\b)\s*({date_value})", line, re.I):
+            if date_key(match.group(1)) > date_key(match.group(2)):
+                reversed_ranges.append(match.group(0))
+    if reversed_ranges:
+        issues.append("Date range check: Some ranges appear to end before they start (" + "; ".join(reversed_ranges[:3]) + "). Verify the dates.")
     return {
         "email_found": email_found,
         "phone_found": phone_found,
@@ -537,10 +616,18 @@ def analyze_resume(text, target_role=None, pasted_jd=None, target_source_name=No
                 matched_skills.append(skill)
             else:
                 missing_skills.append(skill)
-        match_rate = len(matched_skills) / len(canonical_target_skills)
+        if using_jd_target:
+            jd_weights = {skill: _job_term_weight(skill, pasted_jd) for skill in canonical_target_skills}
+            match_rate = sum(jd_weights[s] for s in matched_skills) / sum(jd_weights.values())
+        else:
+            jd_weights = {skill: 1.0 for skill in canonical_target_skills}
+            match_rate = len(matched_skills) / len(canonical_target_skills)
         role_score = int(round(match_rate * 40))
     else:
+        jd_weights = {}
         role_score = 25
+
+    skill_evidence = {skill: _skill_evidence(skill, text) for skill in matched_skills}
 
     # Role keywords for preset (if preset is in use)
     expected_keywords = JOB_TAXONOMY.get(target_role, {}).get("keywords", []) if not using_jd_target else []
@@ -580,6 +667,11 @@ def analyze_resume(text, target_role=None, pasted_jd=None, target_source_name=No
         "evaluation_type": "Deterministic Keyword/Text Alignment (Heuristic)",
         "disclaimer": "Scores represent local heuristic keyword/text alignment, not a guaranteed ATS score or semantic understanding.",
         "formula": f"{role_score}/40 (Role Fit) + {section_score}/30 (Sections) + {impact_score}/15 (Impact) + {length_score}/15 (Length) = {total_score}/100",
+        "role_fit_note": "Job-description terms are weighted by nearby required/preferred wording; preset terms are weighted equally.",
+        "role_fit_weights": jd_weights,
+        "section_points_per_found": round(30 / len(EXPECTED_SECTIONS), 1),
+        "action_verb_count": verbs_count,
+        "length_band": "350–900 words" if 350 <= words <= 900 else ("200–349 or 901–1200 words" if 200 <= words <= 1200 else "under 200 or over 1200 words"),
     }
 
     return {
@@ -590,6 +682,7 @@ def analyze_resume(text, target_role=None, pasted_jd=None, target_source_name=No
         "length_score": length_score,
         "score_breakdown": score_breakdown,
         "matched_skills": matched_skills,
+        "skill_evidence": skill_evidence,
         "missing_skills": missing_skills,
         "analyzed_skills": canonical_target_skills,
         "role_fit_source": role_fit_source,
@@ -599,6 +692,7 @@ def analyze_resume(text, target_role=None, pasted_jd=None, target_source_name=No
         "matched_keywords": matched_keywords,
         "missing_keywords": missing_keywords,
         "missing_sections": missing_sections,
+        "sections_found": sections_found,
         "word_count": words,
         "jd_analysis": jd_analysis,
         "bullet_analysis": bullet_analysis,

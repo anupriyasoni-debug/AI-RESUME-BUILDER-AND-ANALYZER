@@ -5,6 +5,7 @@ load_dotenv()
 import streamlit as st
 import hashlib
 import html
+from pathlib import Path
 
 from analyzer import (
     JOB_TAXONOMY,
@@ -19,7 +20,12 @@ from job_catalog import render_job_selector
 from style import DARK_THEME_CSS, GRADIENT_CSS
 
 
-st.set_page_config(page_title="Resumer | AI Resume Builder & Analyzer", layout="wide")
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+st.set_page_config(
+    page_title="Resumer Studio | Resume Builder & Analyzer",
+    page_icon=str(ASSETS_DIR / "resumer-studio-mark.svg"),
+    layout="wide",
+)
 
 st.markdown(GRADIENT_CSS, unsafe_allow_html=True)
 
@@ -86,9 +92,11 @@ st.markdown(
     .wireframe.ivy .wireframe-person-name { margin-bottom: .45rem; color: #334155; font-size: .72rem; }
     .wireframe.ivy .wireframe-contact { width: 38%; height: 4px; margin: 0 auto; }
     .wireframe.ivy .wireframe-title { width: 23%; height: 4px; }
-    .capability { min-height: 175px; padding: 1rem; border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: var(--radius-card); background: #fff; box-shadow: var(--shadow-card); transition: transform .18s ease, box-shadow .18s ease; }
+    .capability { height: 260px; box-sizing: border-box; display: flex; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: var(--radius-card); background: #fff; box-shadow: var(--shadow-card); transition: transform .18s ease, box-shadow .18s ease; }
     .capability:hover { transform: translateY(-3px); box-shadow: 0 13px 28px rgba(29,34,74,.12); }
     .capability h4 { color: var(--ink); margin: .3rem 0; }
+    .capability p { flex: 1; margin-bottom: 0; }
+    @media (max-width: 850px) { .capability { height: auto; min-height: 0; } }
     .swatch { display: flex; align-items: center; gap: .65rem; margin-top: .5rem; color: var(--ink); font-family: monospace; }
     .swatch span { width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgba(15,23,42,.18); background: var(--swatch); }
     .font-preview { padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: rgba(255,255,255,.78); }
@@ -107,18 +115,23 @@ def _navigate_to_page(page_name):
     st.session_state["main_navigation"] = page_name
 
 
+def _choose_home_template(template_name):
+    st.session_state["resume_template"] = template_name
+    st.session_state["selected_template"] = template_name
+
+
 def _score_ring_markup(score):
     score = max(0, min(100, int(score)))
     circumference = 2 * 3.14159 * 42
     offset = circumference * (1 - score / 100)
     return (
-        f"<div style='display:flex;align-items:center;gap:14px;padding:.8rem 0' role='img' aria-label='Overall ATS rubric score {score} out of 100'>"
+        f"<div style='display:flex;align-items:center;gap:14px;padding:.8rem 0' role='img' aria-label='App rubric estimate {score} out of 100'>"
         f"<svg width='106' height='106' viewBox='0 0 100 100' aria-hidden='true'>"
         f"<circle cx='50' cy='50' r='42' fill='none' stroke='#293044' stroke-width='9'/>"
         f"<circle cx='50' cy='50' r='42' fill='none' stroke='#8b7cff' stroke-width='9' stroke-linecap='round' stroke-dasharray='{circumference:.1f}' stroke-dashoffset='{offset:.1f}' transform='rotate(-90 50 50)'/>"
         f"<text x='50' y='48' text-anchor='middle' font-size='24' font-weight='750' fill='#f8fafc'>{score}</text>"
         "<text x='50' y='65' text-anchor='middle' font-size='10' fill='#9aa4b8'>out of 100</text></svg>"
-        "<span style='font-size:.85rem;color:#9aa4b8'>Overall<br><strong style='color:#f8fafc'>Resume score</strong></span></div>"
+        "<span style='font-size:.85rem;color:#9aa4b8'>App rubric<br><strong style='color:#f8fafc'>estimate</strong></span></div>"
     )
 
 
@@ -132,7 +145,8 @@ def _render_skill_chips(values, variant):
     )
 
 
-st.sidebar.markdown("<div style='font-size:1.25rem;font-weight:800;letter-spacing:-.02em'>Resumer <span style='color:#a78bfa'>Studio</span></div><div style='color:#aab3c4;font-size:.78rem;margin:.25rem 0 1rem'>Your resume workspace</div>", unsafe_allow_html=True)
+st.sidebar.image(str(ASSETS_DIR / "resumer-studio-logo.svg"), width=220)
+st.sidebar.caption("Your resume workspace")
 page = st.sidebar.radio("Workspace", ["Home / Overview", "Upload & Dual Analyzer", "Resume Builder", "Resume Comparison"], key="main_navigation")
 
 
@@ -233,6 +247,16 @@ if page == "Home / Overview":
                 f'<div class="{card_class}"><h4>{template}</h4>{selected_label}{render_wireframe(variant, name, details)}<p>Sample layout preview · scoring depends on your resume and target role.</p></div>',
                 unsafe_allow_html=True,
             )
+            if chosen_template == template_value:
+                st.button("Selected layout", key=f"home_showcase_selected_{template_value}", disabled=True, width="stretch")
+            else:
+                st.button(
+                    "Use this template",
+                    key=f"home_showcase_choose_{template_value}",
+                    width="stretch",
+                    on_click=_choose_home_template,
+                    args=(template_value,),
+                )
 
     st.subheader("Platform Capabilities")
     capabilities = [
@@ -245,7 +269,7 @@ if page == "Home / Overview":
     for index, (column, (title, description, target_page)) in enumerate(zip(columns, capabilities), start=1):
         with column:
             st.markdown(f'<div class="capability"><span style="display:inline-grid;place-items:center;width:30px;height:30px;border-radius:10px;background:{["#f1edff","#eaf2ff","#e9fbf5","#fff4e4"][index-1]};color:{["#7657ff","#3987ff","#158061","#996200"][index-1]};font-weight:800">0{index}</span><h4>{title}</h4><p>{description}</p></div>', unsafe_allow_html=True)
-            st.button("Open", key=f"home_feature_{index}", use_container_width=True, on_click=_navigate_to_page, args=(target_page,))
+            st.button("Open", key=f"home_feature_{index}", width="stretch", on_click=_navigate_to_page, args=(target_page,))
 
     st.subheader("What you can do here")
     results = st.columns(3)
@@ -274,19 +298,36 @@ if page == "Home / Overview":
 elif page == "Upload & Dual Analyzer":
     st.header("Resume Analyzer")
     st.caption("Upload your resume to review ATS alignment, matched skills, missing skills, and recommendations.")
-    role_column, upload_column = st.columns(2)
-    with role_column:
-        target_role = st.selectbox("Select Target Job Domain", list(JOB_TAXONOMY.keys()))
-    with upload_column:
-        uploaded_file = st.file_uploader("Upload Resume (.pdf or .docx)", type=["pdf", "docx"])
-        if uploaded_file:
-            st.caption(f"Selected file: {uploaded_file.name} · {uploaded_file.size / 1024:.0f} KB")
+    st.markdown(
+        """
+        <style>
+        .st-key-resume_analyzer_inputs [data-testid="stFileUploaderDropzone"] {
+            min-height: 112px !important;
+            padding: .55rem .8rem !important;
+        }
+        @media (max-width: 700px) {
+            .st-key-resume_analyzer_inputs [data-testid="stFileUploaderDropzone"] {
+                min-height: 100px !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.container(key="resume_analyzer_inputs"):
+        role_column, upload_column = st.columns(2, gap="medium", vertical_alignment="top")
+        with role_column:
+            target_role = st.selectbox("Select Target Job Domain", list(JOB_TAXONOMY.keys()))
+        with upload_column:
+            uploaded_file = st.file_uploader("Upload Resume (.pdf or .docx)", type=["pdf", "docx"])
+            if uploaded_file:
+                st.caption(f"Selected file: {uploaded_file.name} · {uploaded_file.size / 1024:.0f} KB")
     job_description, jd_source_label = render_job_selector(key_prefix="analyzer")
 
     if uploaded_file:
         raw_text = extract_text(uploaded_file)
         if not raw_text:
-            st.error("Could not parse selectable text. Please ensure the document is not an image-only scan.")
+            st.error("Could not extract readable text. For scanned PDFs, local OCR is attempted when Tesseract is installed; otherwise upload a selectable-text PDF or DOCX.")
         else:
             results = analyze_resume(
                 raw_text,
@@ -295,13 +336,40 @@ elif page == "Upload & Dual Analyzer":
                 target_source_name=jd_source_label,
             )
 
+            with st.expander("ATS Parse Preview", expanded=False):
+                st.caption(
+                    "This is the exact text the analyzer received, in its extracted order. "
+                    "It helps spot missing text or mixed reading order; different ATS products may parse the same file differently."
+                )
+                formatting = results["formatting_analysis"]
+                parse_columns = st.columns(3, gap="medium", vertical_alignment="top")
+                parse_columns[0].metric("Email detected", "Yes" if formatting["email_found"] else "No")
+                parse_columns[1].metric("Phone detected", "Yes" if formatting["phone_found"] else "No")
+                found_sections = results.get("sections_found", {})
+                section_names = {
+                    "contact": "Contact", "summary": "Summary", "education": "Education",
+                    "experience": "Experience", "skills": "Skills", "projects": "Projects",
+                    "certifications": "Certifications",
+                }
+                detected = [section_names[name] for name, found in found_sections.items() if found]
+                missing = [section_names[name] for name in results.get("missing_sections", [])]
+                parse_columns[2].metric("Headings detected", f"{len(detected)} / {len(section_names)}")
+                st.markdown("**Detected headings**")
+                st.write(", ".join(detected) if detected else "None detected")
+                if missing:
+                    st.warning("Headings not detected: " + ", ".join(missing))
+                st.markdown("**Extracted text and reading order**")
+                preview_limit = 12000
+                st.code(raw_text[:preview_limit], language=None, wrap_lines=True, height=320)
+                if len(raw_text) > preview_limit:
+                    st.caption(f"Preview shortened to {preview_limit:,} characters; the analyzer still used all {len(raw_text):,} characters.")
+
             if results.get("jd_fallback_notice"):
                 st.warning(results["jd_fallback_notice"])
 
-            score_columns = st.columns(4)
+            score_columns = st.columns(4, gap="medium", vertical_alignment="top")
             with score_columns[0]:
                 st.markdown(_score_ring_markup(results["total_score"]), unsafe_allow_html=True)
-                st.metric("Overall ATS Rubric", f"{results['total_score']} / 100")
             score_columns[1].metric("Role Fit", f"{results['role_score']} / 40")
             score_columns[2].metric("Completeness", f"{results['section_score']} / 30")
             score_columns[3].metric("Impact & Length", f"{results['impact_score'] + results['length_score']} / 30")
@@ -316,8 +384,19 @@ elif page == "Upload & Dual Analyzer":
             )
             st.caption(
                 f"**Role-Fit Source:** {results.get('role_fit_source', target_role)} · "
-                "Local heuristic keyword and text alignment assessment (not a guaranteed ATS score or semantic understanding)."
+                "Local evidence and keyword checks. This is an estimate, not a score from an employer's ATS."
             )
+
+            with st.expander("How the score is calculated"):
+                breakdown = results["score_breakdown"]
+                st.markdown(
+                    f"- **Role fit:** {results['role_score']}/40 from {len(results.get('analyzed_skills', []))} target skills. "
+                    f"{breakdown['role_fit_note']}\n"
+                    f"- **Sections:** {results['section_score']}/30; each detected standard section is worth about {breakdown['section_points_per_found']} points.\n"
+                    f"- **Action verbs:** {results['impact_score']}/15; {breakdown['action_verb_count']} distinct rubric verbs detected.\n"
+                    f"- **Length:** {results['length_score']}/15 at {results['word_count']} words ({breakdown['length_band']})."
+                )
+                st.caption("This local rubric does not reproduce any specific ATS vendor's scoring rules.")
 
             st.divider()
             target_source_title = "JD Skills" if results.get("using_jd_target") else "Preset Skills"
@@ -328,6 +407,8 @@ elif page == "Upload & Dual Analyzer":
             with matched_col:
                 st.markdown(f"**Matched Skills ({len(results['matched_skills'])})**")
                 st.markdown(_render_skill_chips(results["matched_skills"], "matched"), unsafe_allow_html=True)
+                for skill, evidence in results.get("skill_evidence", {}).items():
+                    st.caption(f"{skill}: “{evidence}”")
             with missing_col:
                 st.markdown(f"**Missing Skills ({len(results['missing_skills'])})**")
                 st.markdown(_render_skill_chips(results["missing_skills"], "missing"), unsafe_allow_html=True)
@@ -337,7 +418,7 @@ elif page == "Upload & Dual Analyzer":
                 if jd_results["available"]:
                     jd_columns = st.columns(3)
                     score_display = f"{jd_results['score']}%" if jd_results["score"] is not None else "N/A"
-                    jd_columns[0].metric("JD Keyword Overlap", score_display)
+                    jd_columns[0].metric("Weighted JD Match", score_display)
                     jd_columns[1].metric("Matched Terms", len(jd_results["matched_terms"]))
                     jd_columns[2].metric("Terms Analyzed", jd_results.get("terms_analyzed", len(jd_results["matched_terms"]) + len(jd_results["missing_terms"])))
 
@@ -346,18 +427,28 @@ elif page == "Upload & Dual Analyzer":
 
                     st.markdown("**Analyzed Job Description Skills & Keywords**")
                     analyzed_terms = jd_results.get("terms_analyzed_list", [])
-                    st.write(", ".join(f"`{t}`" for t in analyzed_terms) if analyzed_terms else "None detected")
+                    term_weights = jd_results.get("term_weights", {})
+                    st.write(
+                        ", ".join(
+                            f"`{t}` ({'must-have' if term_weights.get(t) == 2.0 else 'preferred' if term_weights.get(t) == 0.5 else 'standard'})"
+                            for t in analyzed_terms
+                        ) if analyzed_terms else "None detected"
+                    )
 
                     jd_matched, jd_missing = st.columns(2)
                     with jd_matched:
                         st.markdown("**Matched JD Terms**")
-                        st.write(", ".join(f"`{t}`" for t in jd_results["matched_terms"]) or "No extracted terms matched yet.")
+                        matched_details = [
+                            f"`{t}` — {jd_results.get('matched_evidence', {}).get(t, '')}"
+                            for t in jd_results["matched_terms"]
+                        ]
+                        st.write("\n\n".join(matched_details) if matched_details else "No extracted terms matched yet.")
                     with jd_missing:
                         st.markdown("**JD Terms to Address**")
                         st.write(", ".join(f"`{t}`" for t in jd_results["missing_terms"]) or "All extracted terms were found.")
 
                     st.caption(
-                        "**Method Distinction:** **JD Keyword Overlap** measures exact keyword matching of extracted requirements. "
+                        "**Method Distinction:** **Weighted JD Match** checks exact recognized requirements; nearby must-have wording counts more and preferred wording counts less. "
                         "**Local text similarity (TF-IDF)** computes length-normalized cosine similarity across all vocabulary. "
                         "Neither percentage is a guaranteed ATS score or an employer's actual screening result."
                     )

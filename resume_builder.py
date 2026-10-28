@@ -535,7 +535,7 @@ def _render_bullet_ai_controls(text_key, key_prefix, context_keys=()):
         "Rule-based checks compare wording structure only; they cannot verify meaning or facts. "
         "Review each option, and edit manually when no safe wording change is available."
     )
-    selection_column, action_column = st.columns([4, 2])
+    selection_column, action_column = st.columns([4, 2], gap="medium", vertical_alignment="bottom")
     with selection_column:
         selected_idx = st.selectbox(
             "Select bullet to review",
@@ -577,7 +577,7 @@ def _render_bullet_ai_controls(text_key, key_prefix, context_keys=()):
         pref = active_suggestions["prefix"]
 
         st.markdown(f"**Current Bullet:** `{orig}`")
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3, gap="medium", vertical_alignment="top")
         with col1:
             st.markdown("**1. Professional**")
             prof = alts["professional"]["text"]
@@ -719,41 +719,45 @@ def resume_builder_page():
         tabs = container.tabs(["👤 Personal", "🎓 Education", "💼 Experience", "🚀 Projects", "🛠️ Skills", "📜 Certifications", "➕ More details"])
 
         with tabs[0]:
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="medium", vertical_alignment="top")
             with col1:
                 data["name"] = st.text_input("Full Name", placeholder="Mahak Sahu", key="builder_name")
                 data["email"] = st.text_input("Email", placeholder="mahak@example.com", key="builder_email")
                 data["phone"] = st.text_input("Phone Number", placeholder="+91 9876543210", key="builder_phone")
                 data["location"] = st.text_input("Location (City, Country)", key="builder_location")
-                data["headline"] = st.text_input("Professional Headline", placeholder="Information Security Analyst | SOC | Incident Response", key="builder_headline")
             with col2:
                 data["linkedin"] = st.text_input("LinkedIn / Portfolio URL", placeholder="linkedin.com/in/mahaksahu", key="builder_linkedin")
                 data["github"] = st.text_input("GitHub Profile URL", placeholder="github.com/mahaksahu", key="builder_github")
                 data["portfolio"] = st.text_input("Portfolio URL (optional)", key="builder_portfolio")
                 data["website"] = st.text_input("Personal Website (optional)", key="builder_website")
-                data["summary"] = st.text_area(
-                    "Professional Summary", height=100,
-                    placeholder="Results-driven engineering student specializing in Artificial Intelligence and scalable backend services.",
-                    key="builder_summary",
-                )
-                _render_writing_assistant(
-                    "builder_summary", "summary", "professional summary",
-                    context_keys=("builder_headline",),
-                )
+            data["headline"] = st.text_input(
+                "Professional Headline",
+                placeholder="Information Security Analyst | SOC | Incident Response",
+                key="builder_headline",
+            )
+            data["summary"] = st.text_area(
+                "Professional Summary", height=100,
+                placeholder="Results-driven engineering student specializing in Artificial Intelligence and scalable backend services.",
+                key="builder_summary",
+            )
+            _render_writing_assistant(
+                "builder_summary", "summary", "professional summary",
+                context_keys=("builder_headline",),
+            )
 
         with tabs[1]:
             num_edu = st.number_input("Number of education entries", min_value=0, max_value=5, key="num_edu")
             education = []
             for i in range(int(num_edu)):
                 st.markdown(f"**Education #{i + 1}**")
-                c1, c2 = st.columns(2)
+                c1, c2 = st.columns(2, gap="medium", vertical_alignment="top")
                 with c1:
                     degree = st.text_input("Degree / Course", key=f"edu_degree_{i}")
                     year = st.text_input("Year", key=f"edu_year_{i}")
                 with c2:
                     institute = st.text_input("Institute / University", key=f"edu_institute_{i}")
                     field = st.text_input("Field of Study", key=f"edu_field_{i}")
-                c3, c4 = st.columns(2)
+                c3, c4 = st.columns(2, gap="medium", vertical_alignment="top")
                 with c3:
                     score = st.text_input("GPA / Score (optional)", key=f"edu_score_{i}")
                 with c4:
@@ -769,12 +773,12 @@ def resume_builder_page():
             experience = []
             for i in range(int(num_exp)):
                 st.markdown(f"**Experience #{i + 1}**")
-                c1, c2 = st.columns(2)
+                c1, c2 = st.columns(2, gap="medium", vertical_alignment="top")
                 with c1:
                     role = st.text_input("Job Title", key=f"exp_role_{i}")
                 with c2:
                     company = st.text_input("Company", key=f"exp_company_{i}")
-                c3, c4 = st.columns(2)
+                c3, c4 = st.columns(2, gap="medium", vertical_alignment="top")
                 with c3:
                     duration = st.text_input("Duration (e.g. Jan 2023 - Present)", key=f"exp_duration_{i}")
                 with c4:
@@ -804,7 +808,7 @@ def resume_builder_page():
                 st.markdown(f"**Project #{i + 1}**")
                 title = st.text_input("Project Title", key=f"proj_title_{i}")
                 tech = st.text_input("Tools / Skills Used", key=f"proj_tech_{i}")
-                c1, c2 = st.columns(2)
+                c1, c2 = st.columns(2, gap="medium", vertical_alignment="top")
                 with c1:
                     project_dates = st.text_input("Dates (optional)", key=f"proj_dates_{i}")
                 with c2:
@@ -838,19 +842,19 @@ def resume_builder_page():
 
         with tabs[6]:
             st.caption("All fields are optional. Leave out anything that does not strengthen your application.")
-            extra_columns = st.columns(2)
+            extra_columns = st.columns(2, gap="medium", vertical_alignment="top")
             with extra_columns[0]:
                 data["languages"] = [line.strip() for line in st.text_area("Languages and proficiency (one per line)", height=100, key="builder_languages", placeholder="English — fluent\nHindi — native").splitlines() if line.strip()]
                 data["awards"] = [line.strip() for line in st.text_area("Awards and honors (one per line)", height=100, key="builder_awards").splitlines() if line.strip()]
-                data["achievements"] = [line.strip() for line in st.text_area("Selected achievements (one per line)", height=120, key="builder_achievements", placeholder="Recognition, measurable milestone, or notable contribution").splitlines() if line.strip()]
-                data["volunteer"] = [line.strip() for line in st.text_area("Volunteer experience (one per line)", height=100, key="builder_volunteer").splitlines() if line.strip()]
             with extra_columns[1]:
                 data["extracurricular"] = [line.strip() for line in st.text_area("Extracurricular activities (one per line)", height=100, key="builder_extracurricular", placeholder="Clubs, student organizations, leadership, or community activities").splitlines() if line.strip()]
                 data["publications"] = [line.strip() for line in st.text_area("Publications, talks, or patents (one per line)", height=100, key="builder_publications").splitlines() if line.strip()]
                 data["interests"] = [item.strip() for item in st.text_area("Professional interests (comma-separated)", height=100, key="builder_interests").split(",") if item.strip()]
+            data["achievements"] = [line.strip() for line in st.text_area("Selected achievements (one per line)", height=120, key="builder_achievements", placeholder="Recognition, measurable milestone, or notable contribution").splitlines() if line.strip()]
+            data["volunteer"] = [line.strip() for line in st.text_area("Volunteer experience (one per line)", height=100, key="builder_volunteer").splitlines() if line.strip()]
 
         _render_progress(data)
-        if st.button("Next: Choose Template & Style", type="primary"):
+        if st.button("Next: Choose Template & Style", type="primary", width="stretch"):
             state.resume_data = data
             state.resume_pdf = None
             state.step = 2
@@ -858,7 +862,7 @@ def resume_builder_page():
         return data
 
     if state.step == 2:
-        top_c1, top_c2 = st.columns([1, 4])
+        top_c1, top_c2 = st.columns([1, 4], gap="medium", vertical_alignment="center")
         with top_c1:
             if st.button("← Back to Form"):
                 _set_form_widget_state(state.resume_data, overwrite=True)
@@ -875,7 +879,7 @@ def resume_builder_page():
             active_color = COLOR_OPTIONS[0]
         color_index = COLOR_OPTIONS.index(active_color)
 
-        style_column, font_column = st.columns([1.15, 0.85], gap="large")
+        style_column, font_column = st.columns([1.15, 0.85], gap="medium", vertical_alignment="top")
         with style_column:
             st.markdown("#### 🎨 Color scheme")
             selected_color = st.selectbox(
@@ -984,7 +988,7 @@ def resume_builder_page():
         st.caption(f"{len(TEMPLATE_PREVIEWS)} layouts · previews reflect your resume, font, and color selections")
         st.info("For job portals, prefer single-column layouts such as ATS Classic, Professional, or Minimalist. Two-column and creative designs are better for direct sharing.")
 
-        gallery_columns = st.columns(3, gap="large")
+        gallery_columns = st.columns(3, gap="medium", vertical_alignment="top")
         for index, preview in enumerate(TEMPLATE_PREVIEWS):
             t_name = preview["name"]
             is_active = t_name == current_template
@@ -1058,18 +1062,19 @@ def resume_builder_page():
             file_name=filename,
             mime="application/pdf",
             on_click=_save_current_resume_version,
+            width="stretch",
         )
         notice = state.pop("resume_version_notice", None)
         if notice:
             st.success(notice)
 
-        col_nav1, col_nav2 = st.columns([1, 1])
+        col_nav1, col_nav2 = st.columns(2, gap="medium", vertical_alignment="top")
         with col_nav1:
-            if st.button("← Change Template or Colors"):
+            if st.button("← Change Template or Colors", width="stretch"):
                 state.step = 2
                 st.rerun()
         with col_nav2:
-            if st.button("Start Over"):
+            if st.button("Start Over", width="stretch"):
                 state.resume_data = {}
                 state.resume_template = TEMPLATE_OPTIONS[0]
                 state.selected_template = TEMPLATE_OPTIONS[0]

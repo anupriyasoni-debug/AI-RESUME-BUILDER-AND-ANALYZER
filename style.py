@@ -578,7 +578,7 @@ hr { border-color: #252b3b !important; }
 .compare-hero .eyebrow { color: #bfdbfe !important; }
 .compare-hero h3 { margin: .4rem 0; color: #fff !important; line-height: 1.2; }
 .compare-hero p { margin: .35rem 0 0; color: #d9d9eb !important; line-height: 1.55; }
-.preview-card, .capability, .how-step {
+.preview-card, .how-step {
     height: 100%;
     box-sizing: border-box;
 }
@@ -586,6 +586,8 @@ hr { border-color: #252b3b !important; }
 .preview-card .wireframe { flex: 1; }
 .preview-card > p:last-child { margin-top: auto; padding-top: .45rem; }
 .capability {
+    height: 260px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
 }
@@ -615,6 +617,7 @@ hr { border-color: #252b3b !important; }
 @media (max-width: 900px) {
     .block-container { padding: 1.5rem 1rem 3rem !important; }
     .hero { padding: 1.7rem 1.35rem !important; }
+    .capability { height: auto; min-height: 0; }
 }
 @media (max-width: 700px) {
     .block-container { padding: 1.25rem .85rem 2.5rem !important; }

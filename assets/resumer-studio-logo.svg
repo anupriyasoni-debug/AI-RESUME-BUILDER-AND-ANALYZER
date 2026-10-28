@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Resumer Studio</title>
+  <desc id="desc">A folded resume page with a mint checkmark beside the Resumer Studio wordmark.</desc>
+  <defs>
+    <linearGradient id="page" x1="28" y1="20" x2="136" y2="140" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(12 8)">
+    <path d="M42 8h52l32 32v96a8 8 0 0 1-8 8H42a8 8 0 0 1-8-8V16a8 8 0 0 1 8-8Z" fill="#111827" stroke="url(#page)" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M94 9v24a8 8 0 0 0 8 8h23" stroke="#A5B4FC" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M54 57h47M54 73h31" stroke="#A5B4FC" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="81" cy="111" r="24" fill="#0F766E"/>
+    <path d="m69 111 8 8 16-17" stroke="#99F6E4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="174" y="86" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="48" font-weight="750" letter-spacing="-1.8">Resumer</text>
+  <text x="176" y="122" fill="#5EEAD4" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="23" font-weight="650" letter-spacing="4.2">STUDIO</text>
+</svg>

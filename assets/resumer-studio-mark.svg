@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Resumer Studio mark</title>
+  <defs>
+    <linearGradient id="page" x1="29" y1="17" x2="132" y2="142" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="152" height="152" rx="34" fill="#111827"/>
+  <path d="M48 23h45l28 28v83a7 7 0 0 1-7 7H48a7 7 0 0 1-7-7V30a7 7 0 0 1 7-7Z" fill="#111827" stroke="url(#page)" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M93 24v20a7 7 0 0 0 7 7h20" stroke="#A5B4FC" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M57 68h50M57 82h33" stroke="#A5B4FC" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="81" cy="113" r="23" fill="#0F766E"/>
+  <path d="m70 113 8 8 15-16" stroke="#99F6E4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
