@@ -207,8 +207,6 @@ def render_job_selector(key_prefix: str = "main") -> Tuple[str, str]:
     options = ["Paste Description Manually"]
     if catalog_ready:
         options.append("Search Offline Job Catalog (Archived Snapshot)")
-    else:
-        options.append("Search Offline Job Catalog (Setup Required)")
 
     mode = st.radio(
         "Job Description Source",
@@ -223,17 +221,6 @@ def render_job_selector(key_prefix: str = "main") -> Tuple[str, str]:
             placeholder="Paste the target role's job description to compare resume keywords and skills.",
             height=130,
             key=f"{key_prefix}_pasted_jd",
-        )
-        label = "Pasted Job Description" if pasted.strip() else ""
-        return pasted, label
-
-    elif "Setup Required" in mode:
-        st.info(get_setup_instructions())
-        pasted = st.text_area(
-            "Paste Target Job Description Manually Instead",
-            placeholder="Paste your target job description here...",
-            height=130,
-            key=f"{key_prefix}_fallback_pasted_jd",
         )
         label = "Pasted Job Description" if pasted.strip() else ""
         return pasted, label
