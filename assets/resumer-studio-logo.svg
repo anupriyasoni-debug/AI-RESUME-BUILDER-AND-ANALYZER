@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160" fill="none" role="img" aria-labelledby="title desc">
-  <title id="title">Resumer Studio</title>
-  <desc id="desc">A folded resume page with a mint checkmark beside the Resumer Studio wordmark.</desc>
+  <title id="title">ResumeForge</title>
+  <desc id="desc">A folded resume page with a mint checkmark beside the ResumeForge wordmark.</desc>
   <defs>
     <linearGradient id="page" x1="28" y1="20" x2="136" y2="140" gradientUnits="userSpaceOnUse">
       <stop stop-color="#818CF8"/>
@@ -14,6 +14,5 @@
     <circle cx="81" cy="111" r="24" fill="#0F766E"/>
     <path d="m69 111 8 8 16-17" stroke="#99F6E4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="174" y="86" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="48" font-weight="750" letter-spacing="-1.8">Resumer</text>
-  <text x="176" y="122" fill="#5EEAD4" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="23" font-weight="650" letter-spacing="4.2">STUDIO</text>
+  <text x="174" y="92" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="40" font-weight="750" letter-spacing="-1.5">ResumeForge</text>
 </svg>

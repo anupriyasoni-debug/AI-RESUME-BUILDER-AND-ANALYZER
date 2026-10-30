@@ -22,7 +22,7 @@ from style import DARK_THEME_CSS, GRADIENT_CSS
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 st.set_page_config(
-    page_title="Resumer Studio | Resume Builder & Analyzer",
+    page_title="ResumeForge | Resume Builder & Analyzer",
     page_icon=str(ASSETS_DIR / "resumer-studio-mark.svg"),
     layout="wide",
 )
@@ -555,7 +555,7 @@ else:
 st.markdown(
     """
     <div style="text-align:center; padding:2rem 0 1rem; color:#64748b;">
-        © 2026 Resumer Studio. All rights reserved. • Built for modern recruiting systems.<br>
+        © 2026 ResumeForge. All rights reserved. • Built for modern recruiting systems.<br>
         <strong>Made by Anupriya Soni and Mahak Sahu</strong>
     </div>
     """,
