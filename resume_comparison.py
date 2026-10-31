@@ -15,6 +15,7 @@ from analyzer import JOB_TAXONOMY, extract_text
 from resume_builder import _list_resume_versions
 from local_model import local_engine
 from job_catalog import render_job_selector
+from sarvam_client import compare_resumes_with_ai, format_ai_error
 
 
 SECTION_HEADINGS = {
@@ -277,6 +278,54 @@ def resume_comparison_page():
         f"comparison-v2\0{target_role}\0{job_description}\0{jd_source_label}\0{text_a}\0{text_b}".encode("utf-8")
     ).hexdigest()
     state = st.session_state
+    ai_fingerprint = hashlib.sha256(
+        f"ai-comparison-v2\0{target_role}\0{job_description}\0{text_a}\0{text_b}".encode("utf-8")
+    ).hexdigest()
+    st.caption(
+        "AI insights compare the selected resumes against the target role."
+    )
+    if st.button("Generate AI Comparison Insights", use_container_width=True, key="generate_comparison_ai_insights"):
+        try:
+            with st.spinner("Comparing resume evidence..."):
+                ai_comparison_text = compare_resumes_with_ai(text_a, text_b, target_role, job_description)
+            state["resume_comparison_ai_insights"] = (ai_fingerprint, ai_comparison_text)
+            state.pop("resume_comparison_ai_error", None)
+        except Exception as exc:
+            state.pop("resume_comparison_ai_insights", None)
+            state["resume_comparison_ai_error"] = ai_fingerprint
+            st.error(
+                "AI comparison could not be generated. Your local comparison is still available. "
+                f"Diagnostic: {format_ai_error(exc)}"
+            )
+
+    stored_ai_comparison = state.get("resume_comparison_ai_insights")
+    if stored_ai_comparison and stored_ai_comparison[0] == ai_fingerprint:
+        st.subheader("AI Comparison Insights")
+        ai_result = stored_ai_comparison[1]
+        ai_columns = st.columns(2, gap="medium")
+        for column, key, title in (
+            (ai_columns[0], "resume_a", f"Resume A · {label_a}"),
+            (ai_columns[1], "resume_b", f"Resume B · {label_b}"),
+        ):
+            details = ai_result.get(key, {})
+            with column:
+                with st.container(border=True):
+                    st.markdown(f"#### {title}")
+                    st.markdown("**Role fit**")
+                    st.write(details.get("role_fit") or "Not enough evidence to assess.")
+                    for heading, list_key in (
+                        ("Strengths", "strengths"),
+                        ("Evidence gaps", "gaps"),
+                        ("Ways to improve", "improvements"),
+                    ):
+                        items = details.get(list_key, [])
+                        st.markdown(f"**{heading}**")
+                        if items:
+                            for item in items:
+                                st.markdown(f"- {item}")
+                        else:
+                            st.caption("No specific point found.")
+
     if st.button("Compare resumes", type="primary", use_container_width=True, key="run_local_comparison"):
         try:
             with st.spinner("Analyzing and comparing resumes locally..."):

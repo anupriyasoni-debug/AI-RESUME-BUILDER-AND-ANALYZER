@@ -1,12 +1,17 @@
-"""
-Deprecated: External AI API Client.
-All external AI API dependencies have been removed and replaced with local_model.py.
-This file is preserved for backward compatibility and makes zero external API or network calls.
-"""
+"""Compatibility exports for older imports; AI insights now use Sarvam."""
 
-from local_model import local_engine, BaseResumeModel, LocalResumeEngine
+from sarvam_client import (
+    compare_resumes_with_ai,
+    format_ai_error,
+    generate_resume_insights,
+)
+
+
+format_gemini_error = format_ai_error
 
 
 def create_gemini_model():
-    """Deprecated: Returns the local offline engine without requiring API keys."""
+    """Keep the legacy factory pointed at the offline local engine."""
+    from local_model import local_engine
+
     return "Local Model (Offline)", local_engine

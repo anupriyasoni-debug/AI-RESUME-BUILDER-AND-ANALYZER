@@ -17,6 +17,7 @@ from analyzer import (
 from resume_builder import resume_builder_page
 from resume_comparison import resume_comparison_page
 from job_catalog import render_job_selector
+from sarvam_client import format_ai_error, generate_resume_insights
 from style import DARK_THEME_CSS, GRADIENT_CSS
 
 
@@ -366,6 +367,30 @@ elif page == "Upload & Dual Analyzer":
 
             if results.get("jd_fallback_notice"):
                 st.warning(results["jd_fallback_notice"])
+
+            ai_fingerprint = hashlib.sha256(
+                f"{raw_text}\0{target_role}\0{job_description}".encode("utf-8")
+            ).hexdigest()
+            st.subheader("Optional AI Insights")
+            st.caption(
+                "AI insights review the resume against the selected role and job description."
+            )
+            if st.button("Generate AI Insights", key="generate_analyzer_ai_insights"):
+                try:
+                    with st.spinner("Generating evidence-based insights..."):
+                        insight_text = generate_resume_insights(raw_text, job_description, target_role)
+                    st.session_state["analyzer_ai_insights"] = (ai_fingerprint, insight_text)
+                    st.session_state.pop("analyzer_ai_insights_error", None)
+                except Exception as exc:
+                    st.session_state.pop("analyzer_ai_insights", None)
+                    st.session_state["analyzer_ai_insights_error"] = ai_fingerprint
+                    st.error(
+                        "AI insights could not be generated. Your local analysis is still available. "
+                        f"Diagnostic: {format_ai_error(exc)}"
+                    )
+            stored_insights = st.session_state.get("analyzer_ai_insights")
+            if stored_insights and stored_insights[0] == ai_fingerprint:
+                st.markdown(stored_insights[1])
 
             score_columns = st.columns(4, gap="medium", vertical_alignment="top")
             with score_columns[0]:
